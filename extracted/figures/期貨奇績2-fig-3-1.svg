@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 620" font-family="sans-serif">
+<rect width="1040" height="620" fill="white"/>
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6 Z" fill="#e67e22"/>
+  </marker>
+</defs>
+
+<!-- Left panel: 多頭趨勢階梯 (bull trend ladder) -->
+<g>
+  <!-- zigzag price line, ascending, 10 numbered turning points -->
+  <polyline points="40,520 95,420 75,450 150,330 130,360 210,290 190,320 270,250 250,280 330,190 310,220 400,120"
+    fill="none" stroke="#333" stroke-width="2.5"/>
+  <!-- red step ladder line trailing the swing lows -->
+  <polyline points="30,555 112,555 112,468 192,468 192,398 272,398 272,328 352,328 352,258 432,258"
+    fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <!-- point labels 1-10 -->
+  <text x="18" y="535" font-size="16" fill="#c0392b">①</text>
+  <text x="100" y="410" font-size="16" fill="#c0392b">②</text>
+  <text x="55" y="465" font-size="16" fill="#c0392b">③</text>
+  <text x="155" y="320" font-size="16" fill="#c0392b">④</text>
+  <text x="110" y="378" font-size="16" fill="#c0392b">⑤</text>
+  <text x="215" y="280" font-size="16" fill="#c0392b">⑥</text>
+  <text x="170" y="338" font-size="16" fill="#c0392b">⑦</text>
+  <text x="275" y="240" font-size="16" fill="#c0392b">⑧</text>
+  <text x="230" y="298" font-size="16" fill="#c0392b">⑨</text>
+  <text x="405" y="110" font-size="16" fill="#c0392b">⑩</text>
+  <!-- orange curved connector arrows illustrating the retest sequence -->
+  <path d="M48,508 Q68,465 90,428" fill="none" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M80,440 Q100,400 128,365" fill="none" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- 慣性破壞 callout near points 4/5 (a sharp spike breaking the ladder) -->
+  <line x1="160" y1="335" x2="160" y2="250" stroke="#333" stroke-width="3"/>
+  <rect x="95" y="200" width="94" height="34" rx="8" fill="white" stroke="#333"/>
+  <text x="103" y="222" font-size="15" fill="#111">慣性破壞</text>
+  <!-- 轉空 callout near point 9 -->
+  <rect x="330" y="170" width="72" height="34" rx="8" fill="white" stroke="#333"/>
+  <text x="343" y="192" font-size="15" fill="#111">轉空</text>
+  <line x1="330" y1="188" x2="255" y2="278" stroke="#333" stroke-width="1.5"/>
+  <rect x="120" y="560" width="140" height="36" rx="8" fill="white" stroke="#c0392b"/>
+  <text x="132" y="584" font-size="16" fill="#c0392b">多頭趨勢階梯</text>
+</g>
+
+<!-- Right panel: 空頭趨勢階梯 (bear trend ladder), mirror image descending -->
+<g>
+  <polyline points="560,120 615,220 595,190 670,310 650,280 730,350 710,320 790,410 770,380 850,470 830,440 920,540"
+    fill="none" stroke="#333" stroke-width="2.5"/>
+  <!-- red step ladder line trailing the swing highs -->
+  <polyline points="550,85 632,85 632,172 712,172 712,242 792,242 792,312 872,312 872,382 952,382"
+    fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <text x="538" y="110" font-size="16" fill="#c0392b">①</text>
+  <text x="620" y="215" font-size="16" fill="#c0392b">②</text>
+  <text x="575" y="185" font-size="16" fill="#c0392b">③</text>
+  <text x="675" y="305" font-size="16" fill="#c0392b">④</text>
+  <text x="630" y="273" font-size="16" fill="#c0392b">⑤</text>
+  <text x="735" y="345" font-size="16" fill="#c0392b">⑥</text>
+  <text x="690" y="315" font-size="16" fill="#c0392b">⑦</text>
+  <text x="795" y="405" font-size="16" fill="#c0392b">⑧</text>
+  <text x="750" y="375" font-size="16" fill="#c0392b">⑨</text>
+  <text x="925" y="535" font-size="16" fill="#c0392b">⑩</text>
+  <!-- orange connector arrows -->
+  <path d="M568,130 Q593,170 613,207" fill="none" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M600,200 Q625,240 648,275" fill="none" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- 慣性破壞 callout near points 4/5 -->
+  <line x1="680" y1="310" x2="680" y2="395" stroke="#333" stroke-width="3"/>
+  <rect x="615" y="400" width="94" height="34" rx="8" fill="white" stroke="#333"/>
+  <text x="623" y="422" font-size="15" fill="#111">慣性破壞</text>
+  <!-- 轉多 callout near point 10 -->
+  <rect x="935" y="430" width="72" height="34" rx="8" fill="white" stroke="#333"/>
+  <text x="948" y="452" font-size="15" fill="#111">轉多</text>
+  <line x1="935" y1="447" x2="850" y2="465" stroke="#333" stroke-width="1.5"/>
+  <rect x="700" y="555" width="140" height="36" rx="8" fill="white" stroke="#c0392b"/>
+  <text x="712" y="579" font-size="16" fill="#c0392b">空頭趨勢階梯</text>
+</g>
+
+<rect x="5" y="5" width="1030" height="610" fill="none" stroke="#666" stroke-width="1.5"/>
+<text x="520" y="612" font-size="12" fill="#888" text-anchor="middle">圖 3-1（示意重繪：趨勢階梯的畫法，結構與標註依原圖，座標非逐點精確）</text>
+</svg>

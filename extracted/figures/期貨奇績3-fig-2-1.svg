@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="sans-serif">
+  <rect x="0" y="0" width="900" height="620" fill="#ffffff"/>
+  <rect x="10" y="10" width="880" height="600" fill="none" stroke="#3a3a6a" stroke-width="2"/>
+
+  <!-- Left group: 底V字買訊 -->
+  <!-- curved line: comes down from upper-left, dips, then a small kink, ending just above first black candle -->
+  <path d="M 130,60 C 150,110 250,120 230,170 C 210,220 170,230 195,270"
+        fill="none" stroke="#5b2a6e" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- first candle: black (down), body -->
+  <rect x="215" y="270" width="34" height="130" fill="#000000"/>
+  <!-- second candle: black (down), body, slightly lower & to the right, shorter -->
+  <rect x="260" y="330" width="34" height="120" fill="#000000"/>
+  <!-- third candle: red (up), body, to the right of second, taller, top above second candle's top -->
+  <rect x="305" y="260" width="34" height="150" fill="#c0272d"/>
+
+  <text x="255" y="500" font-size="26" fill="#000000" text-anchor="middle">底V字買訊</text>
+
+  <!-- Right group: 頂倒V空訊 -->
+  <!-- curved line: comes up from lower-left, rises, small kink, ending just below/left of first red candle -->
+  <path d="M 555,420 C 575,370 610,360 605,320 C 600,280 650,270 640,220"
+        fill="none" stroke="#5b2a6e" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- first candle: red (up), body -->
+  <rect x="650" y="190" width="34" height="130" fill="#c0272d"/>
+  <!-- second candle: red (up), body, to the right, taller, top higher than first -->
+  <rect x="695" y="130" width="34" height="150" fill="#c0272d"/>
+  <!-- third candle: black (down), body, to the right of second, top similar height as second -->
+  <rect x="740" y="140" width="34" height="140" fill="#000000"/>
+
+  <text x="690" y="500" font-size="26" fill="#000000" text-anchor="middle">頂倒V空訊</text>
+</svg>

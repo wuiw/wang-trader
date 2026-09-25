@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" font-family="sans-serif">
+  <rect x="0" y="0" width="1000" height="560" fill="#ffffff"/>
+  <rect x="20" y="20" width="960" height="480" rx="6" fill="none" stroke="#3b3b7a" stroke-width="2"/>
+
+  <!-- ===== LEFT: 底母子買訊 ===== -->
+  <!-- purple trend curve descending into the pattern -->
+  <path d="M 60,90 C 120,150 95,200 130,230 C 150,245 160,250 165,260"
+        fill="none" stroke="#6a3d9a" stroke-width="3"/>
+
+  <!-- dashed reference line at mother candle's low (extends under child & signal) -->
+  <line x1="150" y1="420" x2="430" y2="420" stroke="#888888" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+  <!-- 母K (black, down candle) -->
+  <line x1="185" y1="248" x2="185" y2="432" stroke="#000000" stroke-width="2"/>
+  <rect x="165" y="260" width="40" height="160" fill="#000000"/>
+
+  <!-- 子K (small red child candle, contained within mother's body range) -->
+  <line x1="250" y1="332" x2="250" y2="398" stroke="#c0392b" stroke-width="2"/>
+  <rect x="238" y="340" width="24" height="50" fill="#c81e1e"/>
+
+  <!-- 訊號K (red signal candle, low sits on baseline, breaks above child's high) -->
+  <line x1="320" y1="270" x2="320" y2="428" stroke="#c0392b" stroke-width="2"/>
+  <rect x="303" y="280" width="34" height="140" fill="#c81e1e"/>
+
+  <text x="250" y="480" text-anchor="middle" font-size="26" font-weight="bold" fill="#111111">底母子買訊</text>
+
+  <!-- ===== RIGHT: 頂母子空訊 ===== -->
+  <!-- purple trend curve rising into the pattern -->
+  <path d="M 550,470 C 600,420 585,380 630,350 C 650,335 660,330 665,325"
+        fill="none" stroke="#6a3d9a" stroke-width="3"/>
+
+  <!-- dashed reference line at mother candle's high (extends under child & signal) -->
+  <line x1="660" y1="200" x2="930" y2="200" stroke="#888888" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+  <!-- 母K (red, up candle, extreme high) -->
+  <line x1="680" y1="188" x2="680" y2="345" stroke="#c0392b" stroke-width="2"/>
+  <rect x="660" y="200" width="40" height="140" fill="#c81e1e"/>
+
+  <!-- 子K (small black child candle, contained within mother's body range) -->
+  <line x1="745" y1="222" x2="745" y2="288" stroke="#000000" stroke-width="2"/>
+  <rect x="733" y="230" width="24" height="50" fill="#000000"/>
+
+  <!-- 訊號K (black signal candle, high sits on baseline, closes below child's low) -->
+  <line x1="815" y1="192" x2="815" y2="330" stroke="#000000" stroke-width="2"/>
+  <rect x="798" y="200" width="34" height="120" fill="#000000"/>
+
+  <text x="750" y="480" text-anchor="middle" font-size="26" font-weight="bold" fill="#111111">頂母子空訊</text>
+
+  <text x="500" y="540" text-anchor="middle" font-size="20" fill="#444444">圖 3-1</text>
+</svg>

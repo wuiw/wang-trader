@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="sans-serif">
+  <rect x="0" y="0" width="1000" height="700" fill="#ffffff"/>
+  <!-- outer frame -->
+  <rect x="20" y="20" width="960" height="660" fill="none" stroke="#5b1a6e" stroke-width="3"/>
+
+  <!-- upper gold dashed threshold line (平盤+40點) -->
+  <line x1="60" y1="230" x2="940" y2="230" stroke="#b8a000" stroke-width="4" stroke-dasharray="14 8"/>
+  <!-- lower gold dashed threshold line (平盤-40點) -->
+  <line x1="60" y1="470" x2="940" y2="470" stroke="#b8a000" stroke-width="4" stroke-dasharray="14 8"/>
+  <!-- purple dashed center line (昨收盤 平盤) -->
+  <line x1="60" y1="350" x2="940" y2="350" stroke="#4b1f7a" stroke-width="6" stroke-dasharray="18 10"/>
+  <text x="948" y="357" font-size="24" fill="#222222">昨收盤（平盤）</text>
+
+  <!-- black candle (跳高收黑空訊) -->
+  <rect x="418" y="90" width="24" height="120" fill="#111111"/>
+  <!-- dashed arrow from candle down to upper gold line -->
+  <path d="M 445 215 L 495 320" stroke="#222222" stroke-width="5" stroke-dasharray="10 8" fill="none" marker-end="url(#arrowBlack)"/>
+  <!-- callout box for black candle -->
+  <rect x="530" y="120" width="200" height="70" rx="14" fill="#ffffff" stroke="#222222" stroke-width="3"/>
+  <text x="560" y="164" font-size="30" fill="#111111">跳高收黑空訊</text>
+  <path d="M 530 175 L 442 205" stroke="#222222" stroke-width="2" fill="none"/>
+  <path d="M 530 150 L 442 195" stroke="#222222" stroke-width="2" fill="none"/>
+
+  <!-- red candle (跳低收紅買訊) -->
+  <rect x="650" y="480" width="24" height="120" fill="#cc0000"/>
+  <!-- dashed arrow from lower gold line up to red candle -->
+  <path d="M 590 460 L 645 355" stroke="#222222" stroke-width="5" stroke-dasharray="10 8" fill="none" marker-end="url(#arrowBlack)"/>
+  <!-- callout box for red candle -->
+  <rect x="700" y="560" width="200" height="70" rx="14" fill="#ffffff" stroke="#222222" stroke-width="3"/>
+  <text x="730" y="604" font-size="30" fill="#111111">跳低收紅買訊</text>
+  <path d="M 700 580 L 676 555" stroke="#222222" stroke-width="2" fill="none"/>
+
+  <!-- green curved double arrow: distance from purple line to upper gold line, labelled 距離平盤40點 -->
+  <path d="M 150 350 C 60 320, 60 260, 150 230" stroke="#4a7c3f" stroke-width="4" stroke-dasharray="10 6" fill="none" marker-start="url(#arrowGreen)" marker-end="url(#arrowGreen)"/>
+  <text x="115" y="300" font-size="28" font-weight="bold" fill="#111111">距離平盤40點</text>
+
+  <!-- green curved double arrow: distance from purple line to lower gold line, labelled 距離平盤40點 -->
+  <path d="M 570 350 C 500 380, 500 440, 570 470" stroke="#4a7c3f" stroke-width="4" stroke-dasharray="10 6" fill="none" marker-start="url(#arrowGreen)" marker-end="url(#arrowGreen)"/>
+  <text x="500" y="430" font-size="28" font-weight="bold" fill="#111111">距離平盤40點</text>
+
+  <defs>
+    <marker id="arrowBlack" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#222222"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4a7c3f"/>
+    </marker>
+  </defs>
+</svg>

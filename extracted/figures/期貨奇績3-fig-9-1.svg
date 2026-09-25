@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="sans-serif">
+  <rect x="0" y="0" width="1000" height="620" fill="#ffffff"/>
+  <rect x="8" y="8" width="984" height="604" fill="none" stroke="#333333" stroke-width="2"/>
+
+  <!-- ===================== LEFT SCENE: 蜻蜓點水買訊 (buy signal) ===================== -->
+  <!-- MA10 curve: rising from lower-left, curving to flatten upper-right -->
+  <path d="M 60,470 C 160,460 220,430 280,380 C 330,340 360,300 410,270" fill="none" stroke="#2f8f7f" stroke-width="4"/>
+  <text x="415" y="255" font-size="22" font-weight="bold" fill="#1f6f5f">MA10</text>
+  <text x="70" y="490" font-size="18" fill="#333333">均線朝上</text>
+
+  <!-- candles climbing along the curve (red=up/紅K, black=down/黑K) -->
+  <!-- small alternating candles before the signal -->
+  <g stroke="#000000">
+    <line x1="120" y1="420" x2="120" y2="470"/>
+    <rect x="112" y="430" width="16" height="30" fill="#cc2222" stroke="none"/>
+    <line x1="150" y1="400" x2="150" y2="450"/>
+    <rect x="142" y="405" width="16" height="30" fill="#111111" stroke="none"/>
+    <line x1="180" y1="380" x2="180" y2="430"/>
+    <rect x="172" y="390" width="16" height="28" fill="#cc2222" stroke="none"/>
+    <line x1="210" y1="390" x2="210" y2="440"/>
+    <rect x="202" y="400" width="16" height="26" fill="#111111" stroke="none"/>
+    <line x1="240" y1="350" x2="240" y2="400"/>
+    <rect x="232" y="360" width="16" height="28" fill="#cc2222" stroke="none"/>
+  </g>
+
+  <!-- the two signal candles: A = black K dipping to touch MA10, B = red K closing back above -->
+  <circle cx="290" cy="345" r="46" fill="none" stroke="#b02020" stroke-width="2.5"/>
+  <g stroke="#000000">
+    <line x1="285" y1="270" x2="285" y2="360"/>
+    <rect x="275" y="290" width="20" height="65" fill="#111111" stroke="none"/>
+    <line x1="315" y1="290" x2="315" y2="360"/>
+    <rect x="305" y="300" width="20" height="55" fill="#cc2222" stroke="none"/>
+  </g>
+  <circle cx="290" cy="368" r="10" fill="#b02020"/>
+  <text x="283" y="373" font-size="14" fill="#ffffff" font-weight="bold">A</text>
+  <circle cx="335" cy="320" r="10" fill="#b02020"/>
+  <text x="328" y="325" font-size="14" fill="#ffffff" font-weight="bold">B</text>
+
+  <!-- dashed continuation arrow up-right -->
+  <path d="M 330,300 L 380,210" fill="none" stroke="#4b2e8f" stroke-width="4" stroke-dasharray="10,8" marker-end="url(#arrowUp)"/>
+
+  <!-- callout box: 蜻蜓點水買訊 -->
+  <rect x="290" y="400" width="200" height="55" rx="8" fill="#ffffff" stroke="#333333" stroke-width="2"/>
+  <text x="305" y="435" font-size="22" font-weight="bold" fill="#111111">蜻蜓點水買訊</text>
+  <line x1="330" y1="400" x2="305" y2="378" stroke="#333333" stroke-width="1.5"/>
+  <line x1="360" y1="400" x2="330" y2="330" stroke="#333333" stroke-width="1.5"/>
+
+  <!-- ===================== RIGHT SCENE: 蜻蜓點水空訊 (sell signal) ===================== -->
+  <!-- MA10 curve: flat/rounding at top then curving down to the right -->
+  <path d="M 590,270 C 640,235 690,225 740,235 C 800,248 850,300 900,400" fill="none" stroke="#2f8f7f" stroke-width="4"/>
+  <text x="905" y="420" font-size="22" font-weight="bold" fill="#1f6f5f">MA10</text>
+  <text x="880" y="330" font-size="18" fill="#333333">均線朝下</text>
+
+  <!-- candles descending before the signal -->
+  <g stroke="#000000">
+    <line x1="630" y1="120" x2="630" y2="170"/>
+    <rect x="622" y="125" width="16" height="35" fill="#111111" stroke="none"/>
+    <line x1="660" y1="140" x2="660" y2="190"/>
+    <rect x="652" y="150" width="16" height="30" fill="#111111" stroke="none"/>
+    <line x1="690" y1="175" x2="690" y2="225"/>
+    <rect x="682" y="185" width="16" height="28" fill="#111111" stroke="none"/>
+    <line x1="720" y1="195" x2="720" y2="250"/>
+    <rect x="712" y="205" width="16" height="30" fill="#cc2222" stroke="none"/>
+  </g>
+
+  <!-- the two signal candles: C = red K poking slightly above MA10, D = black K closing back below -->
+  <circle cx="775" cy="255" r="46" fill="none" stroke="#b02020" stroke-width="2.5"/>
+  <g stroke="#000000">
+    <line x1="765" y1="215" x2="765" y2="290"/>
+    <rect x="755" y="225" width="20" height="55" fill="#cc2222" stroke="none"/>
+    <line x1="795" y1="225" x2="795" y2="300"/>
+    <rect x="785" y="235" width="20" height="65" fill="#111111" stroke="none"/>
+  </g>
+  <circle cx="775" cy="222" r="10" fill="#b02020"/>
+  <text x="768" y="227" font-size="14" fill="#ffffff" font-weight="bold">C</text>
+  <circle cx="815" cy="285" r="10" fill="#b02020"/>
+  <text x="808" y="290" font-size="14" fill="#ffffff" font-weight="bold">D</text>
+
+  <!-- dashed continuation arrow down-right -->
+  <path d="M 800,300 L 850,395" fill="none" stroke="#4b2e8f" stroke-width="4" stroke-dasharray="10,8" marker-end="url(#arrowDown)"/>
+
+  <!-- callout box: 蜻蜓點水空訊 -->
+  <rect x="600" y="300" width="200" height="55" rx="8" fill="#ffffff" stroke="#333333" stroke-width="2"/>
+  <text x="615" y="335" font-size="22" font-weight="bold" fill="#111111">蜻蜓點水空訊</text>
+  <line x1="700" y1="300" x2="775" y2="270" stroke="#333333" stroke-width="1.5"/>
+  <line x1="700" y1="300" x2="815" y2="290" stroke="#333333" stroke-width="1.5"/>
+
+  <!-- arrow marker defs -->
+  <defs>
+    <marker id="arrowUp" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4b2e8f"/>
+    </marker>
+    <marker id="arrowDown" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4b2e8f"/>
+    </marker>
+  </defs>
+
+  <text x="420" y="600" font-size="24" text-anchor="middle" fill="#111111">圖 9-1</text>
+</svg>

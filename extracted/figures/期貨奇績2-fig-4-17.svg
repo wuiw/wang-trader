@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" font-family="sans-serif">
+<rect width="900" height="700" fill="#ffffff"/>
+
+<!-- decline (red) from upper-left down toward 關卡 -->
+<g stroke="#000" stroke-width="2">
+<line x1="120" y1="80" x2="120" y2="180"/><rect x="110" y="100" width="20" height="60" fill="#c0392b"/>
+<line x1="160" y1="120" x2="160" y2="220"/><rect x="150" y="140" width="20" height="60" fill="#c0392b"/>
+<line x1="200" y1="160" x2="200" y2="260"/><rect x="190" y="180" width="20" height="60" fill="#c0392b"/>
+</g>
+
+<!-- 關卡 dashed line -->
+<line x1="40" y1="240" x2="760" y2="240" stroke="#000" stroke-width="2" stroke-dasharray="8,6"/>
+<text x="770" y="246" font-size="20">關卡</text>
+
+<!-- 反彈峰點: candle sitting on/near 關卡 line -->
+<g stroke="#000" stroke-width="2">
+<line x1="240" y1="200" x2="240" y2="280"/><rect x="230" y="215" width="20" height="50" fill="#000"/>
+</g>
+<text x="180" y="60" font-size="20">反彈峰點</text>
+<line x1="230" y1="200" x2="230" y2="75" stroke="#000" stroke-width="1"/>
+
+<!-- decline (black) into 谷點 -->
+<g stroke="#000" stroke-width="2">
+<line x1="280" y1="260" x2="280" y2="360"/><rect x="270" y="280" width="20" height="60" fill="#000"/>
+<line x1="320" y1="320" x2="320" y2="420"/><rect x="310" y="340" width="20" height="60" fill="#c0392b"/>
+<line x1="360" y1="360" x2="360" y2="450"/><rect x="350" y="375" width="20" height="55" fill="#c0392b"/>
+</g>
+<!-- small rebound up to 關卡 again -->
+<g stroke="#000" stroke-width="2">
+<line x1="400" y1="230" x2="400" y2="330"/><rect x="390" y="245" width="20" height="60" fill="#c0392b"/>
+<line x1="440" y1="200" x2="440" y2="300"/><rect x="430" y="215" width="20" height="60" fill="#000"/>
+</g>
+<!-- pull back down to 谷點 level -->
+<g stroke="#000" stroke-width="2">
+<line x1="480" y1="330" x2="480" y2="420"/><rect x="470" y="345" width="20" height="55" fill="#000"/>
+</g>
+<text x="270" y="470" font-size="20">谷點</text>
+<line x1="330" y1="430" x2="300" y2="460" stroke="#000" stroke-width="1"/>
+
+<!-- 訊號K線: final black breakdown candle below 谷點 -->
+<g stroke="#000" stroke-width="2">
+<line x1="560" y1="380" x2="560" y2="540" stroke-width="3"/>
+<rect x="548" y="400" width="24" height="120" fill="#000" stroke="#000" stroke-width="2"/>
+</g>
+<rect x="620" y="440" width="130" height="46" rx="20" fill="#fff" stroke="#000" stroke-width="2"/>
+<text x="640" y="470" font-size="22">訊號K線</text>
+<line x1="620" y1="463" x2="572" y2="460" stroke="#000" stroke-width="1"/>
+
+<g font-size="20">
+<text x="20" y="590">1、在關卡上方的K線根數至少在3根以上停留</text>
+<text x="20" y="620">2、在價格跌破關卡，在關卡下方的K線數必須多於折返超越關卡的K線數。</text>
+<text x="20" y="650">3、跌破關卡先形成層級2谷點，而後反彈形成層級2峰點（峰點可以突破關卡位）。</text>
+<text x="20" y="680">4、訊號為跌破層級2谷點，訊號K線收盤須為無遮蔽K線。</text>
+</g>
+<text x="380" y="30" font-size="22" font-weight="bold">圖4-17</text>
+</svg>

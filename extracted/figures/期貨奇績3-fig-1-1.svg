@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" font-family="sans-serif">
+  <rect x="0" y="0" width="900" height="420" fill="#ffffff"/>
+  <rect x="15" y="15" width="870" height="360" fill="none" stroke="#3b3b6d" stroke-width="2"/>
+
+  <!-- LEFT: 雙鴉躍空 (two crows leaping into the void - top reversal) -->
+  <g>
+    <!-- rising purple curve into the long red candle -->
+    <path d="M 90,330 C 130,300 150,260 175,210 C 185,190 190,175 195,160"
+          fill="none" stroke="#5b2a6e" stroke-width="3"/>
+    <!-- long red candle -->
+    <rect x="175" y="90" width="40" height="120" fill="#c0272d"/>
+    <!-- two small black candles (crows) stepping down-left to up-right at the top -->
+    <line x1="255" y1="50" x2="255" y2="100" stroke="#111111" stroke-width="2"/>
+    <rect x="247" y="60" width="16" height="30" fill="#111111"/>
+    <line x1="290" y1="45" x2="290" y2="110" stroke="#111111" stroke-width="2"/>
+    <rect x="282" y="50" width="16" height="55" fill="#111111"/>
+    <text x="215" y="360" text-anchor="middle" font-size="26" font-weight="bold" fill="#000000">雙鴉躍空</text>
+  </g>
+
+  <!-- RIGHT: 覆蓋線 (dark cloud cover) -->
+  <g>
+    <!-- rising purple curve with small kink, into the red candle -->
+    <path d="M 560,330 C 590,305 600,290 615,275 C 625,265 635,255 640,245 C 645,235 648,225 655,205 C 662,185 668,170 675,150"
+          fill="none" stroke="#5b2a6e" stroke-width="3"/>
+    <!-- red candle -->
+    <rect x="655" y="95" width="36" height="95" fill="#c0272d"/>
+    <!-- black candle overlapping down through midline of red candle -->
+    <rect x="700" y="70" width="36" height="120" fill="#111111"/>
+    <!-- horizontal midline marker across the red candle body, showing the black candle closes below it -->
+    <line x1="600" y1="145" x2="745" y2="145" stroke="#3b3b6d" stroke-width="2"/>
+    <text x="700" y="360" text-anchor="middle" font-size="26" font-weight="bold" fill="#000000">覆蓋線</text>
+  </g>
+
+  <text x="450" y="410" text-anchor="middle" font-size="18" fill="#000000">圖 1-1</text>
+</svg>
