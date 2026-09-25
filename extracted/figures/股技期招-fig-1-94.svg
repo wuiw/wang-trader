@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="sans-serif">
+<rect width="1000" height="640" fill="#ffffff"/>
+<rect x="10" y="10" width="980" height="620" fill="none" stroke="#333" stroke-width="1.5"/>
+<line x1="500" y1="10" x2="500" y2="630" stroke="#999" stroke-dasharray="4 4"/>
+
+<!-- LEFT: rising staircase with a drop-out exit -->
+<g stroke="#111" stroke-width="1.1">
+<line x1="45" y1="470" x2="45" y2="540" stroke="#111"/><rect x="39" y="480" width="12" height="40" fill="#111"/>
+<line x1="65" y1="450" x2="65" y2="510" stroke="#c0242c"/><rect x="59" y="460" width="12" height="40" fill="#c0242c"/>
+<line x1="85" y1="430" x2="85" y2="490" stroke="#c0242c"/><rect x="79" y="440" width="12" height="40" fill="#c0242c"/>
+<line x1="105" y1="400" x2="105" y2="450" stroke="#111"/><rect x="99" y="410" width="12" height="30" fill="#111"/>
+<line x1="125" y1="380" x2="125" y2="420" stroke="#111"/><rect x="119" y="390" width="12" height="20" fill="#111"/>
+<line x1="145" y1="360" x2="145" y2="400" stroke="#c0242c"/><rect x="139" y="370" width="12" height="20" fill="#c0242c"/>
+<line x1="165" y1="365" x2="165" y2="405" stroke="#111"/><rect x="159" y="375" width="12" height="20" fill="#111"/>
+<line x1="185" y1="300" x2="185" y2="380" stroke="#c0242c"/><rect x="179" y="310" width="12" height="50" fill="#c0242c"/>
+<line x1="205" y1="150" x2="205" y2="300" stroke="#c0242c"/><rect x="199" y="160" width="12" height="120" fill="#c0242c"/>
+<line x1="225" y1="180" x2="225" y2="260" stroke="#111"/><rect x="219" y="190" width="12" height="60" fill="#111"/>
+</g>
+<polyline points="45,540 60,540 60,490 100,490 100,440 140,440 140,400 200,400 200,320 240,320"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<circle cx="65" cy="490" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="61" y="494" font-size="10" fill="#c0242c">①</text>
+<circle cx="85" cy="490" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="81" y="494" font-size="10" fill="#c0242c">②</text>
+<circle cx="145" cy="400" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="141" y="404" font-size="10" fill="#c0242c">③</text>
+<circle cx="185" cy="360" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="181" y="364" font-size="10" fill="#c0242c">④</text>
+<circle cx="205" cy="320" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="201" y="324" font-size="10" fill="#c0242c">⑤</text>
+<circle cx="225" cy="180" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="221" y="184" font-size="10" fill="#c0242c">⑥</text>
+<circle cx="245" cy="130" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="241" y="134" font-size="10" fill="#c0242c">⑦</text>
+<circle cx="270" cy="105" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="266" y="109" font-size="10" fill="#c0242c">⑧</text>
+<circle cx="290" cy="80" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="286" y="84" font-size="10" fill="#c0242c">⑨</text>
+<rect x="290" y="230" width="55" height="24" fill="#eee" stroke="#333"/>
+<text x="298" y="247" font-size="12">出場</text>
+<path d="M 300 260 L 250 190" stroke="#666" stroke-width="1"/>
+<text x="220" y="575" font-size="14" font-weight="bold" text-anchor="middle">以進場後創新高無遮蔽K線及其前一根K線低點孰低</text>
+<text x="220" y="593" font-size="14" font-weight="bold" text-anchor="middle">為移動基礎之階梯停損停利出場線</text>
+
+<!-- RIGHT: falling staircase mirrored -->
+<g stroke="#111" stroke-width="1.1">
+<line x1="560" y1="180" x2="560" y2="230" stroke="#111"/><rect x="554" y="190" width="12" height="30" fill="#111"/>
+<line x1="580" y1="210" x2="580" y2="260" stroke="#c0242c"/><rect x="574" y="220" width="12" height="30" fill="#c0242c"/>
+<line x1="600" y1="250" x2="600" y2="300" stroke="#111"/><rect x="594" y="260" width="12" height="30" fill="#111"/>
+<line x1="620" y1="280" x2="620" y2="330" stroke="#c0242c"/><rect x="614" y="290" width="12" height="30" fill="#c0242c"/>
+<line x1="640" y1="330" x2="640" y2="390" stroke="#111"/><rect x="634" y="340" width="12" height="40" fill="#111"/>
+<line x1="660" y1="380" x2="660" y2="420" stroke="#c0242c"/><rect x="654" y="390" width="12" height="20" fill="#c0242c"/>
+<line x1="680" y1="410" x2="680" y2="450" stroke="#111"/><rect x="674" y="420" width="12" height="20" fill="#111"/>
+<line x1="700" y1="460" x2="700" y2="530" stroke="#111"/><rect x="694" y="470" width="12" height="50" fill="#111"/>
+<line x1="720" y1="520" x2="720" y2="560" stroke="#c0242c"/><rect x="714" y="530" width="12" height="20" fill="#c0242c"/>
+</g>
+<polyline points="560,180 610,180 610,240 650,240 650,320 690,320 690,410 900,410"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<circle cx="600" cy="240" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="596" y="244" font-size="10" fill="#c0242c">①</text>
+<circle cx="620" cy="240" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="616" y="244" font-size="10" fill="#c0242c">②</text>
+<circle cx="640" cy="320" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="636" y="324" font-size="10" fill="#c0242c">③</text>
+<circle cx="680" cy="320" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="676" y="324" font-size="10" fill="#c0242c">④</text>
+<circle cx="700" cy="410" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="696" y="414" font-size="10" fill="#c0242c">⑤</text>
+<circle cx="720" cy="450" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="716" y="454" font-size="10" fill="#c0242c">⑥</text>
+<circle cx="740" cy="560" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="736" y="564" font-size="10" fill="#c0242c">⑦</text>
+<circle cx="760" cy="560" r="10" fill="#fff" stroke="#c0242c" stroke-width="1.2"/><text x="756" y="564" font-size="10" fill="#c0242c">⑧</text>
+<text x="720" y="575" font-size="14" font-weight="bold" text-anchor="middle">以進場後創新低無遮蔽K線及其前一根K線高點孰高</text>
+<text x="720" y="593" font-size="14" font-weight="bold" text-anchor="middle">為移動基礎之階梯停損停利出場線</text>
+
+<text x="500" y="620" font-size="18" text-anchor="middle">圖 1-94</text>
+</svg>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="sans-serif">
+<rect width="1000" height="620" fill="#ffffff"/>
+<rect x="10" y="10" width="980" height="600" fill="none" stroke="#333" stroke-width="1.5"/>
+<line x1="500" y1="10" x2="500" y2="610" stroke="#999" stroke-dasharray="4 4"/>
+
+<!-- LEFT: rising, rolling 10-bar low window highlighted -->
+<rect x="40" y="380" width="130" height="200" fill="#f5e27a" opacity="0.6"/>
+<rect x="330" y="150" width="130" height="240" fill="#f5e27a" opacity="0.6"/>
+<g stroke="#111" stroke-width="1.1">
+<line x1="45" y1="380" x2="45" y2="450" stroke="#111"/><rect x="39" y="390" width="12" height="40" fill="#111"/>
+<line x1="65" y1="400" x2="65" y2="460" stroke="#111"/><rect x="59" y="410" width="12" height="40" fill="#111"/>
+<line x1="85" y1="390" x2="85" y2="440" stroke="#c0242c"/><rect x="79" y="400" width="12" height="30" fill="#c0242c"/>
+<line x1="105" y1="370" x2="105" y2="420" stroke="#111"/><rect x="99" y="380" width="12" height="30" fill="#111"/>
+<line x1="125" y1="380" x2="125" y2="420" stroke="#111"/><rect x="119" y="390" width="12" height="20" fill="#111"/>
+<line x1="145" y1="360" x2="145" y2="400" stroke="#111"/><rect x="139" y="370" width="12" height="20" fill="#111"/>
+<line x1="185" y1="330" x2="185" y2="380" stroke="#c0242c"/><rect x="179" y="340" width="12" height="30" fill="#c0242c"/>
+<line x1="205" y1="320" x2="205" y2="360" stroke="#111"/><rect x="199" y="330" width="12" height="20" fill="#111"/>
+<line x1="225" y1="300" x2="225" y2="340" stroke="#c0242c"/><rect x="219" y="310" width="12" height="20" fill="#c0242c"/>
+<line x1="245" y1="330" x2="245" y2="360" stroke="#111"/><rect x="239" y="335" width="12" height="15" fill="#111"/>
+<line x1="265" y1="335" x2="265" y2="365" stroke="#c0242c"/><rect x="259" y="340" width="12" height="15" fill="#c0242c"/>
+<line x1="285" y1="230" x2="285" y2="320" stroke="#c0242c"/><rect x="279" y="240" width="12" height="60" fill="#c0242c"/>
+<line x1="305" y1="250" x2="305" y2="290" stroke="#111"/><rect x="299" y="260" width="12" height="20" fill="#111"/>
+<line x1="335" y1="130" x2="335" y2="260" stroke="#111"/><rect x="329" y="140" width="12" height="100" fill="#111"/>
+<line x1="355" y1="190" x2="355" y2="270" stroke="#c0242c"/><rect x="349" y="200" width="12" height="50" fill="#c0242c"/>
+<line x1="375" y1="230" x2="375" y2="280" stroke="#111"/><rect x="369" y="240" width="12" height="30" fill="#111"/>
+<line x1="395" y1="260" x2="395" y2="300" stroke="#111"/><rect x="389" y="270" width="12" height="20" fill="#111"/>
+<line x1="415" y1="270" x2="415" y2="310" stroke="#c0242c"/><rect x="409" y="280" width="12" height="20" fill="#c0242c"/>
+<line x1="435" y1="165" x2="435" y2="280" stroke="#c0242c"/><rect x="429" y="175" width="12" height="80" fill="#c0242c"/>
+<line x1="460" y1="240" x2="460" y2="340" stroke="#111"/><rect x="454" y="250" width="14" height="70" fill="#111"/>
+</g>
+<polyline points="45,450 90,450 90,430 150,430 150,400 200,400 200,370 270,370 270,300 320,300 320,280 460,280"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<rect x="480" y="290" width="45" height="24" fill="#eee" stroke="#333"/>
+<text x="486" y="307" font-size="12">出場</text>
+<text x="230" y="565" font-size="15" font-weight="bold" text-anchor="middle">進場後，以跌破10根K線區間最低點為停損模式</text>
+
+<!-- RIGHT: falling, rolling 4-bar high window highlighted -->
+<rect x="560" y="140" width="70" height="180" fill="#f5e27a" opacity="0.6"/>
+<g stroke="#111" stroke-width="1.1">
+<line x1="565" y1="150" x2="565" y2="250" stroke="#111"/><rect x="559" y="160" width="12" height="70" fill="#111"/>
+<line x1="585" y1="180" x2="585" y2="240" stroke="#c0242c"/><rect x="579" y="190" width="12" height="40" fill="#c0242c"/>
+<line x1="605" y1="200" x2="605" y2="300" stroke="#111"/><rect x="599" y="210" width="12" height="60" fill="#111"/>
+<line x1="625" y1="250" x2="625" y2="310" stroke="#c0242c"/><rect x="619" y="260" width="12" height="30" fill="#c0242c"/>
+<line x1="650" y1="270" x2="650" y2="330" stroke="#111"/><rect x="644" y="280" width="12" height="30" fill="#111"/>
+<line x1="670" y1="290" x2="670" y2="340" stroke="#c0242c"/><rect x="664" y="300" width="12" height="20" fill="#c0242c"/>
+<line x1="690" y1="300" x2="690" y2="350" stroke="#111"/><rect x="684" y="310" width="12" height="20" fill="#111"/>
+<line x1="710" y1="320" x2="710" y2="360" stroke="#c0242c"/><rect x="704" y="330" width="12" height="15" fill="#c0242c"/>
+<line x1="730" y1="330" x2="730" y2="370" stroke="#111"/><rect x="724" y="340" width="12" height="15" fill="#111"/>
+<line x1="750" y1="335" x2="750" y2="375" stroke="#c0242c"/><rect x="744" y="345" width="12" height="15" fill="#c0242c"/>
+<line x1="785" y1="420" x2="785" y2="480" stroke="#111"/><rect x="779" y="430" width="12" height="30" fill="#111"/>
+<line x1="805" y1="450" x2="805" y2="480" stroke="#c0242c"/><rect x="799" y="455" width="12" height="15" fill="#c0242c"/>
+<line x1="825" y1="440" x2="825" y2="470" stroke="#111"/><rect x="819" y="445" width="12" height="15" fill="#111"/>
+<line x1="845" y1="435" x2="845" y2="465" stroke="#c0242c"/><rect x="839" y="440" width="12" height="15" fill="#c0242c"/>
+<line x1="865" y1="440" x2="865" y2="470" stroke="#111"/><rect x="859" y="445" width="12" height="15" fill="#111"/>
+<line x1="885" y1="420" x2="885" y2="460" stroke="#c0242c"/><rect x="879" y="430" width="12" height="20" fill="#c0242c"/>
+</g>
+<polyline points="565,150 600,150 600,220 650,220 650,270 700,270 700,320 770,320 770,420 900,420"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<rect x="740" y="380" width="45" height="24" fill="#eee" stroke="#333"/>
+<text x="746" y="397" font-size="12">出場</text>
+<text x="720" y="565" font-size="15" font-weight="bold" text-anchor="middle">進場後，以突破4根K線區間最高點為停損模式</text>
+
+<text x="500" y="600" font-size="18" text-anchor="middle">圖 1-95</text>
+</svg>

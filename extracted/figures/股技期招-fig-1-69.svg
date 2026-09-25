@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1150" font-family="sans-serif">
+<rect width="1000" height="1150" fill="#ffffff"/>
+<rect x="10" y="10" width="980" height="1130" fill="none" stroke="#333" stroke-width="2"/>
+<line x1="500" y1="10" x2="500" y2="1140" stroke="#333" stroke-dasharray="3 3"/>
+<line x1="10" y1="575" x2="990" y2="575" stroke="#333" stroke-dasharray="3 3"/>
+
+<!-- Panel 1: top-left -->
+<g stroke="#111" stroke-width="1.3">
+<rect x="60" y="330" width="18" height="100" fill="#c0242c"/>
+<rect x="90" y="270" width="18" height="90" fill="#111"/>
+<rect x="120" y="290" width="18" height="60" fill="#c0242c"/>
+<rect x="150" y="300" width="18" height="50" fill="#111"/>
+<rect x="180" y="305" width="18" height="55" fill="#c0242c"/>
+<rect x="210" y="300" width="18" height="55" fill="#111"/>
+<rect x="240" y="330" width="18" height="45" fill="#111"/>
+<rect x="270" y="345" width="18" height="30" fill="#c0242c"/>
+<rect x="300" y="220" width="20" height="80" fill="#c0242c"/>
+</g>
+<path d="M 99 275 L 249 335" stroke="#1a2a5e" stroke-width="1.5" stroke-dasharray="5 3"/>
+<circle cx="99" cy="275" r="4" fill="#1a2a5e"/><circle cx="249" cy="335" r="4" fill="#1a2a5e"/>
+<path d="M 340 260 Q 370 275 400 250" stroke="#333" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+<text x="405" y="255" font-size="20" font-weight="bold">買</text>
+<text x="240" y="430" font-size="22" font-weight="bold" text-anchor="middle">趨勢向上，突破下降線，做買進</text>
+
+<!-- Panel 2: top-right -->
+<g stroke="#111" stroke-width="1.3">
+<rect x="560" y="200" width="18" height="90" fill="#111"/>
+<rect x="590" y="250" width="18" height="60" fill="#c0242c"/>
+<rect x="620" y="240" width="18" height="70" fill="#c0242c"/>
+<rect x="650" y="270" width="18" height="60" fill="#111"/>
+<rect x="680" y="255" width="18" height="45" fill="#111"/>
+<rect x="710" y="270" width="18" height="30" fill="#c0242c"/>
+<rect x="740" y="280" width="18" height="30" fill="#111"/>
+<rect x="770" y="255" width="18" height="55" fill="#c0242c"/>
+<rect x="800" y="300" width="20" height="60" fill="#111"/>
+<rect x="830" y="330" width="18" height="40" fill="#111"/>
+</g>
+<path d="M 569 285 L 809 305" stroke="#1a2a5e" stroke-width="1.5" stroke-dasharray="5 3"/>
+<circle cx="569" cy="285" r="4" fill="#1a2a5e"/><circle cx="809" cy="305" r="4" fill="#1a2a5e"/>
+<path d="M 850 330 Q 870 345 895 330" stroke="#333" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+<text x="880" y="365" font-size="20" font-weight="bold">賣</text>
+<text x="760" y="430" font-size="22" font-weight="bold" text-anchor="middle">趨勢向下，突破上升線，做賣出</text>
+
+<!-- Panel 3: bottom-left -->
+<g stroke="#111" stroke-width="1.3">
+<rect x="60" y="700" width="18" height="70" fill="#c0242c"/>
+<rect x="90" y="670" width="18" height="70" fill="#c0242c"/>
+<rect x="120" y="650" width="20" height="90" fill="#111"/>
+<rect x="150" y="700" width="18" height="60" fill="#c0242c"/>
+<rect x="180" y="680" width="20" height="90" fill="#111"/>
+<rect x="210" y="720" width="18" height="50" fill="#c0242c"/>
+<rect x="240" y="740" width="18" height="35" fill="#111"/>
+<rect x="270" y="800" width="18" height="30" fill="#111"/>
+<rect x="300" y="810" width="18" height="25" fill="#111"/>
+<rect x="330" y="800" width="18" height="30" fill="#c0242c"/>
+<rect x="390" y="850" width="24" height="70" fill="#c0242c"/>
+</g>
+<circle cx="120" cy="645" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="108" y="625" font-size="16" fill="#c0242c">①</text>
+<circle cx="190" cy="675" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="178" y="655" font-size="16" fill="#c0242c">②</text>
+<circle cx="250" cy="735" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="238" y="715" font-size="16" fill="#c0242c">③</text>
+<circle cx="400" cy="845" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="388" y="825" font-size="16" fill="#c0242c">④</text>
+<path d="M 120 645 L 400 845" stroke="#1a2a5e" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="415" y="720" font-size="16" fill="#1a2a5e">L1</text>
+<path d="M 190 675 L 400 845" stroke="#8a2020" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="415" y="780" font-size="16" fill="#8a2020">L2</text>
+<text x="405" y="900" font-size="16">L3</text>
+<path d="M 425 890 Q 445 900 460 880" stroke="#333" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+<text x="465" y="885" font-size="18" font-weight="bold">買</text>
+<text x="440" y="905" font-size="20" fill="#333">&#10003;</text>
+<text x="240" y="1090" font-size="20" font-weight="bold" text-anchor="middle">下降趨勢線取最近的二個峰點連線</text>
+
+<!-- Panel 4: bottom-right -->
+<g stroke="#111" stroke-width="1.3">
+<rect x="560" y="700" width="20" height="90" fill="#111"/>
+<rect x="590" y="740" width="18" height="60" fill="#c0242c"/>
+<rect x="630" y="800" width="18" height="30" fill="#111"/>
+<rect x="670" y="770" width="20" height="40" fill="#111"/>
+<rect x="700" y="730" width="18" height="60" fill="#c0242c"/>
+<rect x="730" y="760" width="18" height="30" fill="#111"/>
+<rect x="760" y="765" width="18" height="25" fill="#c0242c"/>
+<rect x="790" y="765" width="18" height="25" fill="#111"/>
+<rect x="820" y="770" width="18" height="20" fill="#c0242c"/>
+<rect x="850" y="790" width="18" height="40" fill="#111"/>
+</g>
+<circle cx="570" cy="795" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="558" y="825" font-size="16" fill="#c0242c">①</text>
+<circle cx="680" cy="815" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="668" y="840" font-size="16" fill="#c0242c">②</text>
+<circle cx="770" cy="795" r="5" fill="none" stroke="#c0242c" stroke-width="1.5"/><text x="758" y="815" font-size="16" fill="#c0242c">③</text>
+<path d="M 570 795 L 770 795" stroke="#1a2a5e" stroke-width="1.5" stroke-dasharray="5 3"/>
+<path d="M 680 815 L 900 780" stroke="#8a2020" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="905" y="775" font-size="16" fill="#8a2020">L2</text>
+<text x="905" y="720" font-size="16" fill="#333">&#10003;</text>
+<path d="M 850 800 Q 865 815 885 800" stroke="#333" stroke-width="2" fill="none" marker-end="url(#ar2)"/>
+<text x="855" y="825" font-size="18" font-weight="bold">賣</text>
+<text x="760" y="1090" font-size="20" font-weight="bold" text-anchor="middle">上升趨勢線取最近的二個谷點連線</text>
+
+<defs>
+<marker id="ar2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#333"/></marker>
+</defs>
+<text x="500" y="1135" font-size="20" text-anchor="middle">圖 1-69</text>
+</svg>

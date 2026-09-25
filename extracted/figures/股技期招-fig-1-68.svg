@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="sans-serif">
+<rect width="1000" height="700" fill="#ffffff"/>
+
+<text x="230" y="40" font-size="26" font-weight="bold" fill="#1a2a5e" text-anchor="middle">高轉折點：層級2</text>
+<text x="330" y="90" font-size="26" text-anchor="middle">H</text>
+<g stroke="#111" stroke-width="1.5">
+<line x1="110" y1="150" x2="110" y2="330" stroke="#111"/>
+<rect x="99" y="210" width="22" height="90" fill="#c0242c"/>
+<text x="95" y="140" font-size="22">2</text>
+
+<line x1="190" y1="130" x2="190" y2="290" stroke="#111"/>
+<rect x="179" y="170" width="22" height="90" fill="#c0242c"/>
+<text x="175" y="120" font-size="22">1</text>
+
+<line x1="330" y1="100" x2="330" y2="270" stroke="#111"/>
+<rect x="319" y="130" width="22" height="110" fill="#c0242c"/>
+
+<line x1="410" y1="130" x2="410" y2="300" stroke="#111"/>
+<rect x="399" y="150" width="22" height="120" fill="#111"/>
+<text x="405" y="120" font-size="22">1</text>
+
+<line x1="480" y1="220" x2="480" y2="320" stroke="#111"/>
+<rect x="469" y="240" width="22" height="50" fill="#c0242c"/>
+<text x="475" y="210" font-size="22">2</text>
+</g>
+
+<text x="750" y="40" font-size="26" font-weight="bold" fill="#1a2a5e" text-anchor="middle">低轉折點：層級2</text>
+<g stroke="#111" stroke-width="1.5">
+<line x1="600" y1="130" x2="600" y2="260" stroke="#111"/>
+<rect x="589" y="140" width="22" height="80" fill="#111"/>
+<text x="595" y="120" font-size="22">2</text>
+
+<line x1="670" y1="160" x2="670" y2="290" stroke="#111"/>
+<rect x="659" y="170" width="22" height="90" fill="#111"/>
+<text x="665" y="150" font-size="22">1</text>
+
+<line x1="800" y1="220" x2="800" y2="440" stroke="#111"/>
+<rect x="789" y="300" width="22" height="120" fill="#111"/>
+<text x="790" y="470" font-size="26">L</text>
+
+<line x1="870" y1="230" x2="870" y2="360" stroke="#111"/>
+<rect x="859" y="260" width="22" height="80" fill="#c0242c"/>
+<text x="865" y="220" font-size="22">1</text>
+
+<line x1="930" y1="180" x2="930" y2="320" stroke="#111"/>
+<rect x="919" y="200" width="22" height="90" fill="#c0242c"/>
+<text x="925" y="170" font-size="22">2</text>
+</g>
+
+<text x="500" y="680" font-size="22" text-anchor="middle">圖 1-68</text>
+</svg>

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="sans-serif">
+<rect width="1000" height="620" fill="#ffffff"/>
+<rect x="10" y="10" width="980" height="600" fill="none" stroke="#333" stroke-width="1.5"/>
+<line x1="500" y1="10" x2="500" y2="610" stroke="#999" stroke-dasharray="4 4"/>
+
+<!-- LEFT: rising staircase using true lows of big up candles -->
+<g stroke="#111" stroke-width="1.2">
+<line x1="55" y1="480" x2="55" y2="530"/><rect x="49" y="490" width="12" height="30" fill="#111"/>
+<line x1="75" y1="470" x2="75" y2="520" stroke="#c0242c"/><rect x="69" y="480" width="12" height="30" fill="#c0242c"/>
+<line x1="95" y1="450" x2="95" y2="500" stroke="#c0242c"/><rect x="89" y="460" width="12" height="30" fill="#c0242c"/>
+<line x1="115" y1="440" x2="115" y2="490" stroke="#c0242c"/><rect x="109" y="450" width="12" height="30" fill="#c0242c"/>
+<line x1="135" y1="420" x2="135" y2="470" stroke="#c0242c"/><rect x="129" y="430" width="12" height="30" fill="#c0242c"/>
+<line x1="155" y1="400" x2="155" y2="450" stroke="#c0242c"/><rect x="149" y="410" width="12" height="30" fill="#c0242c"/>
+<line x1="175" y1="380" x2="175" y2="420" stroke="#111"/><rect x="169" y="390" width="12" height="20" fill="#111"/>
+<line x1="195" y1="365" x2="195" y2="405" stroke="#111"/><rect x="189" y="375" width="12" height="20" fill="#111"/>
+<line x1="215" y1="350" x2="215" y2="390" stroke="#c0242c"/><rect x="209" y="360" width="12" height="20" fill="#c0242c"/>
+<line x1="235" y1="330" x2="235" y2="380" stroke="#c0242c"/><rect x="229" y="340" width="12" height="30" fill="#c0242c"/>
+<line x1="255" y1="300" x2="255" y2="360" stroke="#111"/><rect x="249" y="310" width="12" height="30" fill="#111"/>
+<line x1="275" y1="280" x2="275" y2="330" stroke="#c0242c"/><rect x="269" y="290" width="12" height="30" fill="#c0242c"/>
+<line x1="295" y1="200" x2="295" y2="290" stroke="#c0242c"/><rect x="289" y="210" width="12" height="60" fill="#c0242c"/>
+<line x1="315" y1="230" x2="315" y2="270" stroke="#111"/><rect x="309" y="240" width="12" height="20" fill="#111"/>
+<line x1="335" y1="225" x2="335" y2="265" stroke="#111"/><rect x="329" y="235" width="12" height="20" fill="#111"/>
+<line x1="355" y1="140" x2="355" y2="250" stroke="#c0242c"/><rect x="349" y="150" width="12" height="80" fill="#c0242c"/>
+<line x1="375" y1="130" x2="375" y2="170" stroke="#111"/><rect x="369" y="140" width="12" height="20" fill="#111"/>
+<line x1="395" y1="120" x2="395" y2="160" stroke="#c0242c"/><rect x="389" y="130" width="12" height="20" fill="#c0242c"/>
+<line x1="415" y1="150" x2="415" y2="200" stroke="#111"/><rect x="409" y="160" width="12" height="30" fill="#111"/>
+</g>
+<!-- staircase (true low steps) -->
+<polyline points="55,530 105,530 105,500 175,500 175,420 235,420 235,380 285,380 285,270 355,270 355,230 465,230"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<circle cx="95" cy="530" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="90" y="534" font-size="11" fill="#c0242c">①</text>
+<circle cx="175" cy="500" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="170" y="504" font-size="11" fill="#c0242c">②</text>
+<circle cx="235" cy="420" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="230" y="424" font-size="11" fill="#c0242c">③</text>
+<circle cx="295" cy="380" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="290" y="384" font-size="11" fill="#c0242c">④</text>
+<circle cx="355" cy="270" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="350" y="274" font-size="11" fill="#c0242c">⑤</text>
+<circle cx="395" cy="230" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="390" y="234" font-size="11" fill="#c0242c">⑥</text>
+<text x="180" y="580" font-size="17" font-weight="bold" text-anchor="middle">根據大漲K線真實低點做為移動基礎</text>
+
+<!-- RIGHT: falling staircase using true highs of big down candles -->
+<g stroke="#111" stroke-width="1.2">
+<line x1="560" y1="140" x2="560" y2="220" stroke="#c0242c"/><rect x="554" y="150" width="12" height="60" fill="#c0242c"/>
+<line x1="580" y1="200" x2="580" y2="260" stroke="#111"/><rect x="574" y="210" width="12" height="30" fill="#111"/>
+<line x1="600" y1="230" x2="600" y2="270" stroke="#c0242c"/><rect x="594" y="240" width="12" height="20" fill="#c0242c"/>
+<line x1="620" y1="180" x2="620" y2="330" stroke="#111"/><rect x="614" y="190" width="12" height="120" fill="#111"/>
+<line x1="640" y1="340" x2="640" y2="380" stroke="#c0242c"/><rect x="634" y="350" width="12" height="20" fill="#c0242c"/>
+<line x1="660" y1="345" x2="660" y2="385" stroke="#c0242c"/><rect x="654" y="355" width="12" height="20" fill="#c0242c"/>
+<line x1="680" y1="330" x2="680" y2="420" stroke="#111"/><rect x="674" y="340" width="12" height="60" fill="#111"/>
+<line x1="700" y1="400" x2="700" y2="440" stroke="#c0242c"/><rect x="694" y="410" width="12" height="20" fill="#c0242c"/>
+<line x1="720" y1="405" x2="720" y2="445" stroke="#111"/><rect x="714" y="415" width="12" height="20" fill="#111"/>
+<line x1="740" y1="400" x2="740" y2="480" stroke="#111"/><rect x="734" y="410" width="12" height="50" fill="#111"/>
+<line x1="760" y1="470" x2="760" y2="510" stroke="#c0242c"/><rect x="754" y="480" width="12" height="20" fill="#c0242c"/>
+<line x1="780" y1="475" x2="780" y2="515" stroke="#c0242c"/><rect x="774" y="485" width="12" height="20" fill="#c0242c"/>
+<line x1="800" y1="450" x2="800" y2="560" stroke="#111"/><rect x="794" y="460" width="12" height="90" fill="#111"/>
+<line x1="820" y1="530" x2="820" y2="570" stroke="#111"/><rect x="814" y="540" width="12" height="20" fill="#111"/>
+<line x1="840" y1="500" x2="840" y2="550" stroke="#c0242c"/><rect x="834" y="510" width="12" height="30" fill="#c0242c"/>
+<line x1="860" y1="480" x2="860" y2="530" stroke="#c0242c"/><rect x="854" y="490" width="12" height="30" fill="#c0242c"/>
+<line x1="880" y1="470" x2="880" y2="520" stroke="#111"/><rect x="874" y="480" width="12" height="30" fill="#111"/>
+</g>
+<!-- staircase (true high steps, descending) -->
+<polyline points="535,220 610,220 610,270 650,270 650,330 720,330 720,400 780,400 780,450 900,450"
+ fill="none" stroke="#25316b" stroke-width="2"/>
+<circle cx="560" cy="220" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="555" y="224" font-size="11" fill="#c0242c">①</text>
+<circle cx="620" cy="270" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="615" y="274" font-size="11" fill="#c0242c">②</text>
+<circle cx="660" cy="330" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="655" y="334" font-size="11" fill="#c0242c">③</text>
+<circle cx="740" cy="400" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="735" y="404" font-size="11" fill="#c0242c">④</text>
+<circle cx="800" cy="450" r="11" fill="#fff" stroke="#c0242c" stroke-width="1.3"/><text x="795" y="454" font-size="11" fill="#c0242c">⑤</text>
+<rect x="855" y="555" width="55" height="24" fill="#eee" stroke="#333"/>
+<text x="860" y="572" font-size="12">出場點</text>
+<text x="720" y="580" font-size="17" font-weight="bold" text-anchor="middle">根據大跌K線真實高點做為移動基礎</text>
+
+<text x="500" y="612" font-size="18" text-anchor="middle">圖 1-92</text>
+</svg>
