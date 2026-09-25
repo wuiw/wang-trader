@@ -28,7 +28,7 @@ def test_short_n_shape_signal():
     res = run(RsiBluntNShape(), make_bars([_flat(c) for c in SHORT_CLOSES]))
     assert len(res.signals) == 1
     sig = res.signals[0]
-    assert sig.side == Side.SHORT and sig.reason == "RSI鈍化倒N型"
+    assert sig.side == Side.SHORT and sig.reason == "RSI倒N型"
     assert sig.i == 13 and sig.price == SHORT_CLOSES[13]
     assert sig.stop == 10025  # 停損＝觸發峰位 A（p.234）
 
@@ -37,7 +37,7 @@ def test_long_n_shape_signal():
     res = run(RsiBluntNShape(), make_bars([_flat(c) for c in LONG_CLOSES]))
     assert len(res.signals) == 1
     sig = res.signals[0]
-    assert sig.side == Side.LONG and sig.reason == "RSI鈍化正N型"
+    assert sig.side == Side.LONG and sig.reason == "RSI正N型"
     assert sig.i == 13 and sig.price == LONG_CLOSES[13]
     assert sig.stop == 9975
 
@@ -59,9 +59,23 @@ def test_continuation_n_shape_buy_after_overbought():
         10024, 10033,  # 收盤 10033 無遮蔽突破 (1) 且過 A → 續勢買訊
     ]
     res = run(RsiBluntNShape(), make_bars([_flat(c) for c in closes]))
-    assert [(s.i, s.side, s.reason) for s in res.signals] == [(17, Side.LONG, "RSI鈍化續勢N型")]
+    assert [(s.i, s.side, s.reason) for s in res.signals] == [(17, Side.LONG, "RSI鈍化正N型")]
     assert res.signals[0].meta["ref_price"] == 10008  # 停損參考＝續勢結構的 0
     assert run(RsiBluntNShape(continuation=False), make_bars([_flat(c) for c in closes])).signals == []
+
+
+def test_continuation_overshoot_beyond_20_points_is_suppressed():
+    """C5b/C6b（p.238）：鈍化續勢訊號突破原極端K線（A=10025）幅度不宜超過約20點，
+    過遠須提防獲利回吐賣壓，不宜追價；預設應忽略，放寬 max_blunt_overshoot 後才可採行。"""
+    closes = _UP + [
+        10020, 10015, 10010, 10008, 10012, 10016,  # 拉回谷點 0（=p1 10008）
+        10022, 10030, 10026, 10022,  # (1) 峰 10030；(2) 拉回 10022 > 0
+        10024, 10050,  # 收盤 10050 距 A(10025) 已達 25 點 > 20 → 不宜追價
+    ]
+    bars = make_bars([_flat(c) for c in closes])
+    assert run(RsiBluntNShape(), bars).signals == []
+    res2 = run(RsiBluntNShape(max_blunt_overshoot=30), bars)
+    assert [(s.i, s.side, s.reason) for s in res2.signals] == [(17, Side.LONG, "RSI鈍化正N型")]
 
 
 def test_rebound_reaching_trigger_high_cancels_inverse_n():
@@ -75,12 +89,24 @@ def test_rebound_reaching_trigger_high_cancels_inverse_n():
     assert res.signals == []
 
 
+def test_continuation_pullback_equal_to_zero_point_invalidates():
+    """C4b（p.238，圖6-60）：續勢結構拉回(2)與起始0點同低（甚至更低）即不符合鈍化條件，
+    含相等的情形（非僅嚴格低於）。"""
+    closes = _UP + [
+        10020, 10015, 10010, 10008, 10012, 10016,  # 拉回谷點 0（=p1 10008）
+        10022, 10030, 10026, 10008,  # (1) 峰 10030；拉回低點恰好等於 0 點 10008 → 續勢作廢
+        10024, 10033,  # 之後即使收盤過峰與 A，也不應成立續勢訊號
+    ]
+    res = run(RsiBluntNShape(), make_bars([_flat(c) for c in closes]))
+    assert res.signals == []
+
+
 def test_peak_shift_allowed_once_within_window():
     """p.241：拉回谷點形成前，觸發峰可向上位移一次（5 根內），停損參考改為新峰。"""
     closes = _UP + [10020, 10032, 10028, 10024, 10020, 10018, 10020, 10022, 10015]
     res = run(RsiBluntNShape(), make_bars([_flat(c) for c in closes]))
     sig = res.signals[0]
-    assert sig.reason == "RSI鈍化倒N型" and sig.meta["trig_i"] == 7 and sig.stop == 10032
+    assert sig.reason == "RSI倒N型" and sig.meta["trig_i"] == 7 and sig.stop == 10032
 
 
 def test_peak_shift_beyond_window_invalidates():
@@ -123,3 +149,14 @@ def test_gap_filter_blocks_conflicting_direction():
     # 跳空 = 開盤10000 - 昨收9995 = 5（<10、且 >=0），與放空方向相反 → 應忽略
     res = run(RsiBluntNShape(gap_filter=True), bars)
     assert res.signals == []
+
+
+def test_digit_stop_short_formula_matches_book():
+    """p.14：空單停損＝收盤＋(20−個位數)，個位數 0 固定 20 點。"""
+    from wangtrader.core import Side
+    from wangtrader.methods.q2_06_04_rsi_blunt_n_shape import _digit_stop
+    assert _digit_stop(Side.SHORT, 7665, 10, 20) == 7680
+    assert _digit_stop(Side.SHORT, 7701, 10, 20) == 7720
+    assert _digit_stop(Side.SHORT, 8636, 10, 20) == 8650
+    assert _digit_stop(Side.SHORT, 8630, 10, 20) == 8650
+    assert _digit_stop(Side.LONG, 8636, 10, 20) == 8620

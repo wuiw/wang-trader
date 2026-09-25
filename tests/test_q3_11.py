@@ -2,7 +2,8 @@ import pandas as pd
 from helpers import make_bars
 
 from wangtrader.core import Side, run
-from wangtrader.methods.q3_11_option_swing_breakout import OptionSwingBreakout
+from wangtrader.core import prepare as core_prepare
+from wangtrader.methods.q3_11_option_swing_breakout import OptionSwingBreakout, _LegState
 
 # 測試以小週期參數（ma_period=3, rsi_period=1）取代書中原文的 MA100/RSI(?)，
 # 使因果關係在少量K線內即可驗證；rsi_period=1 時 RSI 只反映前一根漲跌方向（漲=100/跌=0），
@@ -214,3 +215,76 @@ def test_exit_prev_day_low():
     res = run(OptionSwingBreakout(ma_period=3, rsi_period=1, exit_mode="prev_day", arm_at_strike=False), bars)
     t = res.trades[0]
     assert t.reason_out == "跌破前一天低點停利" and t.exit_price == 96 and t.pnl == -16
+
+
+def test_c6_requires_signal_bar_closes_on_correct_side_of_ma100():
+    """C6 新增規則（p.256，圖11-8）：K線收盤突破峰位水平線，但當下仍位於MA100之下，不算完成步驟
+    的買進訊號；須等到真正收盤站上均線的那一根才算數。以白箱方式直接呼叫 `_step_call`、人為指定
+    MA 值，隔離出這條規則本身（有機價格走勢很難同時控制「突破峰位」與「MA相對位置」兩個條件）。"""
+    rows = [
+        (100, 101, 99, 100),
+        (100, 103, 99, 102),
+        (102, 105, 101, 104),
+        (104, 111, 103, 110),
+        (109, 110, 104, 105),
+        (105, 113, 104, 112),  # B：收盤112突破峰位111
+        (112, 115, 111, 113),  # 下一根：收盤113同樣突破峰位111
+    ]
+    strat = OptionSwingBreakout(ma_period=3, rsi_period=1)
+    df = strat.prepare(core_prepare(make_bars(rows)))
+    strat._call = _LegState(origin=99.0, cand=111.0, cand_i=3, rsi_hit=True, confirmed=111.0, pullback_start=4)
+
+    df.loc[5, "ma"] = 120.0  # 人為設定：B棒收盤112雖突破峰位111，但仍在MA100(120)之下
+    order = strat._step_call(df, 5)
+    assert order is None
+    assert strat._call is not None and strat._call.confirmed == 111.0  # 追蹤狀態不變，繼續等待
+
+    df.loc[6, "ma"] = 108.0  # 下一根：收盤113同樣突破峰位，且此時已收在MA100(108)之上 -> 真正訊號
+    order2 = strat._step_call(df, 6)
+    assert order2 is not None and order2.side == Side.LONG and order2.meta["peak_price"] == 111.0
+
+
+def test_c6p_requires_signal_bar_closes_on_correct_side_of_ma100():
+    """C6' 鏡像：PUT情境同樣要求訊號K線收盤須已跌破MA100。"""
+    rows = [
+        (100, 101, 99, 100),
+        (100, 101, 97, 98),
+        (98, 99, 95, 96),
+        (96, 97, 89, 90),
+        (91, 96, 90, 95),
+        (95, 96, 84, 85),  # B：收盤85跌破谷位89
+        (85, 86, 82, 83),  # 下一根：收盤83同樣跌破谷位89
+    ]
+    strat = OptionSwingBreakout(ma_period=3, rsi_period=1)
+    df = strat.prepare(core_prepare(make_bars(rows)))
+    strat._put = _LegState(origin=101.0, cand=89.0, cand_i=3, rsi_hit=True, confirmed=89.0, pullback_start=4)
+
+    df.loc[5, "ma"] = 80.0  # 人為設定：B棒收盤85雖跌破谷位89，但仍在MA100(80)之上
+    order = strat._step_put(df, 5)
+    assert order is None
+    assert strat._put is not None and strat._put.confirmed == 89.0
+
+    df.loc[6, "ma"] = 90.0  # 下一根：收盤83同樣跌破谷位，且已跌破MA100(90) -> 真正訊號
+    order2 = strat._step_put(df, 6)
+    assert order2 is not None and order2.side == Side.SHORT and order2.meta["trough_price"] == 89.0
+
+
+def test_exit_fixed_pct():
+    """機制4：固定比例平倉（p.257「賺50%或100%出場」）。本模組以「觸及履約價後再前進
+    arm_target*fixed_profit_ratio 點」近似。"""
+    rows = [
+        (100, 101, 99, 100),
+        (100, 103, 99, 102),
+        (102, 105, 101, 104),
+        (104, 111, 103, 110),
+        (109, 110, 104, 105),
+        (105, 113, 104, 112),  # 進場112，履約價130，arm_target=18
+        (112, 132, 111, 131),  # 觸及130（arm_target達成）
+        (131, 149, 130, 148),  # 再前進18點（130+18=148）-> 達成 100% -> 固定比例停利
+    ]
+    res = run(OptionSwingBreakout(ma_period=3, rsi_period=1, exit_mode="fixed_pct",
+                                  fixed_profit_ratio=1.0, strike_step=10, otm_steps=2), make_bars(rows))
+    sig = res.signals[0]
+    assert sig.meta["arm_target"] == 18.0
+    t = res.trades[0]
+    assert t.reason_out == "固定比例停利(100%)" and t.exit_i == 7 and t.exit_price == 148

@@ -3,7 +3,7 @@ import pandas as pd
 from helpers import make_bars
 
 from wangtrader.core import Side, run
-from wangtrader.methods.q2_03_02_pvt_rsi import PVTRSISignal, _Pivot
+from wangtrader.methods.q2_03_02_pvt_rsi import PVTRSISignal, _digit_stop, _Pivot
 
 KW = dict(pivot_level=1, ladder_ignore_diff=2.0, break_points=3.0, retrace_points=3.0, rsi_period=3)
 
@@ -146,3 +146,13 @@ def test_giveback_exit_only_after_profit_target_reached():
     rows = LONG_BASE[:12] + [(108, 114, 107, 110), (110, 111, 96, 97), (97, 100, 96, 99)]
     res = run(PVTRSISignal(ladder_exit=False, breakeven_arm_points=1000.0, **KW), make_bars(rows))
     assert res.trades and not res.trades[0].reason_out.startswith("折返")
+
+
+def test_short_stop_formula_matches_book_examples():
+    """回歸測試（問題彙整.md C）：空單停損＝收盤+(20−個位數)，個位數0固定20點（p.14，本節推論比照 q2-03-01）。
+    先前程式誤用鏡像公式 收盤+(10+個位數)，只有個位數5時數值相同。"""
+    assert _digit_stop(Side.SHORT, 7665, 10.0, 20.0) == 7680
+    assert _digit_stop(Side.SHORT, 7701, 10.0, 20.0) == 7720
+    assert _digit_stop(Side.SHORT, 8636, 10.0, 20.0) == 8650
+    assert _digit_stop(Side.SHORT, 7700, 10.0, 20.0) == 7720  # 整數價位固定20點
+    assert _digit_stop(Side.LONG, 7905, 10.0, 20.0) == 7890  # 多方公式不變（p.13）

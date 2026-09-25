@@ -11,8 +11,14 @@
 進場（p.50–51, 54, 57）：訊號K收盤時，距極端點（第二根同向K的高/低點）≤ stop_points
   → 立刻進場；距離較大 → far_entry_mode："pullback" 補進場等待拉回（限價，max_wait 根內未成交
   即失效）、"direct" 直接進場但停損固定 stop_points、"ignore" 忽略（p.50 三種皆可）。
-  反向K本身為超大K線（實體 ≥ large_bar_threshold）時，簡化為直接以其收盤 ± stop_points
-  設停損並立刻進場（p.54「不必將停損位置設在極端的 B 頂點」）。
+  分級進場（p.53）：
+    tier1（大K線）：反向K實體 > stop_points 且收盤距真實極端點 ≤ large_bar_direct_range（30）
+      → 不論 far_entry_mode，直接以收盤 ± stop_points 進場（p.53「C收盤離B最低點近30點，直接進場，
+      停損只設20點，不設在最低點」）。
+    tier2（超大K線）：反向K實體 > large_bar_threshold（30）→ 改以該K線中點（實體中點，p.53-54）
+      為停損參考基準：距中點 < stop_points 直接以收盤 ± stop_points 進場；否則等拉回至距中點
+      stop_points 內再補進場（p.53「停損位置可改設在該K線的中點或實體中點...通常會等拉回縮小停損
+      至20點以內再補進場」；p.54圖2-5：C收盤離中點19點 < 20 → 等效於直接以收盤+20設停損）。
 停損（p.50, 54）：「以最低黑K線低點為停損」＝極端點（穿越 stop_tick 即出場）；
   進場價距極端點 ≤ stop_points 所以風險 ≤ stop_points；直接進場而距離較大時停損改為
   進場價 ± stop_points（p.50「直接進場，但停損點設在 20 點不變」）。
@@ -29,6 +35,8 @@
   故預設關閉。
 出場：exit_mode = "ladder" | "ma" | "sar" | "none"（預設 none）。書中本章未證實可套用
   第一章的出場工具，此為推論，未經原文證實（p.73）。
+  時間停滯出場（p.62，新增）：進場後若未觸及停損，也遲遲無法推進獲利（max_profit 未達
+  stall_progress_points），經過約 stall_minutes 分鐘（書中「約一小時」，以K線時間戳計算，不綁週期）仍無進展，於本根收盤撤單平倉。
 
 週期：不限。所有門檻以點數／根數表示。
 """
@@ -47,13 +55,23 @@ from wangtrader.core.indicators import sar, sma
 METHOD_ID = "q3-02"
 
 
+
+def _elapsed_minutes(df: pd.DataFrame, entry_i: int, i: int) -> float:
+    """進場K線到第 i 根K線經過的分鐘數（用 prepare() 保留的 time 欄；非時間戳時退回根數）。"""
+    t0, t1 = df.at[entry_i, "time"], df.at[i, "time"]
+    try:
+        return (t1 - t0).total_seconds() / 60.0
+    except (TypeError, AttributeError):
+        return float(i - entry_i)
+
 @dataclass
 class Params:
     stop_points: float = 20.0  # 單筆最大風險（p.50）
     stop_tick: float = 1.0  # 極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
     max_wait: int = 10  # 補進場等待根數；書未載明具體根數（推論，比照 q3-01 預設）
     far_entry_mode: str = "pullback"  # 距離 > stop_points 時："pullback" | "direct" | "ignore"（p.50）
-    large_bar_threshold: float | None = 30.0  # p.54，反向K線實體 ≥ 此值時簡化停損直接進場
+    large_bar_direct_range: float = 30.0  # tier1：反向K實體 > stop_points 且收盤距極端點 ≤ 此值 → 直接進場（p.53）
+    large_bar_threshold: float | None = 30.0  # tier2：反向K實體 > 此值（超大K線）→ 改用中點基準（p.53-54）
     extreme_range: float = 30.0  # p.49, 57
     extreme_from_prev_close: float = 40.0  # p.49, 57
     opposite_signal_no_invade: bool = True  # F1，p.56
@@ -62,6 +80,8 @@ class Params:
     exit_mode: str = "none"  # 推論；書中未證實可套用第一章出場法，預設關閉
     profit_target: float = 20.0
     ma_period: int = 10
+    stall_minutes: float | None = 60.0  # 時間停滯出場：進場後約一小時（p.62），以 K 線時間戳計算，不綁週期；None 關閉
+    stall_progress_points: float = 0.0  # 「毫無進展」門檻：max_profit 未達此點數視為無進展（p.62）
 
 
 class VReversal(Strategy):
@@ -152,10 +172,22 @@ class VReversal(Strategy):
 
         name = "底V字" if side == Side.LONG else "頂倒V"
         body_pts = abs(close - b["open"])
-        if p.large_bar_threshold is not None and body_pts >= p.large_bar_threshold:
-            stop = close - p.stop_points if side == Side.LONG else close + p.stop_points
-            return Order.enter(side, stop=stop, reason=name + "(大K簡化)", extreme=ext, vsignal=True)
         dist = abs(close - ext)
+        # tier2：超大K線（p.53-54），改以K線實體中點為停損基準
+        if p.large_bar_threshold is not None and body_pts > p.large_bar_threshold:
+            mid = float((b["open"] + b["close"]) / 2)
+            mdist = abs(close - mid)
+            if mdist < p.stop_points:
+                stop = close - p.stop_points if side == Side.LONG else close + p.stop_points
+                return Order.enter(side, stop=stop, reason=name + "(超大K)", extreme=ext, vsignal=True)
+            limit = mid + p.stop_points * int(side)
+            stop = limit - p.stop_points if side == Side.LONG else limit + p.stop_points
+            return Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
+                                     reason=name + "(超大K補進場)", extreme=ext, vsignal=True)
+        # tier1：大K線，收盤距真實極端點在 large_bar_direct_range 以內 → 直接進場（p.53）
+        if dist > p.stop_points and body_pts > p.stop_points and dist <= p.large_bar_direct_range:
+            stop = close - p.stop_points if side == Side.LONG else close + p.stop_points
+            return Order.enter(side, stop=stop, reason=name + "(大K直接)", extreme=ext, vsignal=True)
         if dist <= p.stop_points:
             return Order.enter(side, stop=self._stop(side, close, ext), reason=name, extreme=ext, vsignal=True)
         if p.far_entry_mode == "direct":
@@ -210,6 +242,10 @@ class VReversal(Strategy):
                 if order.meta.get("vsignal"):
                     self._last_signal[sess] = (order.side, float(df.at[i, "close"]))
                 return [order]
+            # 時間停滯出場（p.62）：進場後約 stall_minutes 分鐘仍無進展（未觸停損、獲利未達門檻）→ 撤單平倉
+            if p.stall_minutes is not None and _elapsed_minutes(ctx.df, ctx.pos.entry_i, i) >= p.stall_minutes \
+                    and ctx.pos.max_profit() <= p.stall_progress_points:
+                return [Order.exit("時間停滯出場")]
             ex = {
                 "ladder": lambda: ladder_exit(ctx, p.profit_target),
                 "ma": lambda: ma_exit(ctx, "ma", p.profit_target),

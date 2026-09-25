@@ -118,6 +118,52 @@ def test_overlapping_body_blocks_reversal():
     assert t.side == Side.LONG and t.entry_price == 10005 and t.reason_out == "收盤平倉"
 
 
+def test_signal_beyond_4_bars_after_extreme_is_ignored():
+    # p.107：訊號K須在極端K後最多4根K線以內，超過即無效（結構上原本會成立破三低）
+    bars = make_bars([
+        (10005, 10050, 10040, 10045),  # A：當下最高
+        (10045, 10048, 10038, 10040),
+        (10040, 10042, 10035, 10038),
+        (10038, 10039, 10032, 10036),
+        (10036, 10037, 10030, 10034),
+        (10034, 10035, 10015, 10020),  # 收盤同時跌破前1、前3根低點，但距 A 已達5根K線 → C4 過濾
+    ], prev_day=PREV)
+    assert run(BreakThreeHighLow(), bars).signals == []
+
+
+def test_signal_close_masked_by_intervening_bar_is_ignored():
+    # p.106：極端K與訊號K之間，若有K線最低點低於訊號K收盤，視為遮蔽，訊號不成立
+    # 用 max_signal_delay 放寬到6，讓遮蔽K線（D）落在「前3根」結構比較窗口之外，凸顯C5獨立於C2/C3窗口
+    bars = make_bars([
+        (10005, 10050, 10040, 10045),  # A：當下最高
+        (10045, 10046, 9980, 9990),    # D：緊接極端K，低點9980（遮蔽用）
+        (9990, 10005, 9985, 10000),
+        (10000, 10010, 9995, 10005),
+        (10005, 10015, 10000, 10010),
+        (10010, 10012, 10002, 10008),
+        (10008, 10009, 9970, 9985),    # 訊號K：收盤9985，結構上跌破前1/前3根低點，但被D（低點9980<9985）遮蔽
+    ], prev_day=PREV)
+    res = run(BreakThreeHighLow(max_signal_delay=6), bars)
+    assert res.signals == []
+
+
+def test_retrace_15pts_flat_exit():
+    # p.111：獲利曾達15點以上又折返回進場價 → 撤單平倉
+    bars = make_bars([
+        (10000, 10010, 9995, 10005),
+        (10005, 10050, 10040, 10045),  # A：當下最高
+        (10045, 10048, 10038, 10040),
+        (10040, 10042, 10035, 10038),
+        (10038, 10039, 10028, 10032),  # 破三低空訊，進場 10032，停損 10051
+        (10032, 10033, 10010, 10015),  # 行情下行，獲利達15點以上（最低10010，距10032達22點）
+        (10015, 10038, 10012, 10035),  # 折返回到進場價以上（獲利<=0）→ 撤單平倉
+    ], prev_day=PREV)
+    res = run(BreakThreeHighLow(), bars)
+    t = res.trades[0]
+    assert t.side == Side.SHORT and t.entry_price == 10032
+    assert t.reason_out == "折返停利" and t.exit_price == 10035
+
+
 def test_stop_without_15pts_reverses_on_new_extreme_close():
     bars = make_bars([
         (10000, 10010, 9995, 10005),

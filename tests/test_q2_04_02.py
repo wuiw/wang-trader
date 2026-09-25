@@ -42,19 +42,35 @@ SHORT_BARS = [
 
 
 def test_breakout_above_prev_close_long_signal():
+    # 結構停損（層級2谷點10005）距進場價23點 > stop_points_cap(20) → 預設情況下改用進場價-20
     bars = make_bars(LONG_BARS, prev_day=PREV)
     res = run(FourPillars(), bars)
     sig = res.signals[0]
     assert sig.side == Side.LONG and sig.reason == "四柱突破(prev_close)"
-    assert sig.price == 10028 and sig.stop == 10005
+    assert sig.price == 10028 and sig.stop == 10008
 
 
 def test_breakdown_below_prev_close_short_signal():
+    # 結構停損（層級2峰點9995）距進場價23點 > 20 → 預設情況下改用進場價+20
     bars = make_bars(SHORT_BARS, prev_day=PREV)
     res = run(FourPillars(), bars)
     sig = res.signals[0]
     assert sig.side == Side.SHORT and sig.reason == "四柱跌破(prev_close)"
-    assert sig.price == 9972 and sig.stop == 9995
+    assert sig.price == 9972 and sig.stop == 9992
+
+
+def test_major_event_stop_allows_exceeding_cap():
+    """重大事件（如公投、選舉開票，p.152–153）停損可超過20點；預設關閉，開啟後改用結構性停損原值。"""
+    bars = make_bars(LONG_BARS, prev_day=PREV)
+    res = run(FourPillars(major_event_stop=True), bars)
+    sig = res.signals[0]
+    assert sig.stop == 10005  # 不受 stop_points_cap 限制，維持結構性層級2谷點
+
+
+def test_stop_points_cap_is_configurable():
+    bars = make_bars(LONG_BARS, prev_day=PREV)
+    res = run(FourPillars(stop_points_cap=30), bars)
+    assert res.signals[0].stop == 10005  # 23點在30點上限內，維持結構停損
 
 
 def test_weak_side_less_than_three_bars_is_filtered():

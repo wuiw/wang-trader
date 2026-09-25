@@ -62,7 +62,7 @@ def test_short_divergence_immediate_entry():
     res = run(KdDivergence(), bars)
     sig = res.signals[0]
     assert sig.side == Side.SHORT and sig.reason == "KD背離向下"
-    assert sig.price == 10051 and sig.stop == 10064  # combined 停損＝max(端點B 10064, 均線訊號10062)
+    assert sig.price == 10051 and sig.stop == 10070  # combined 停損＝max(端點B 10064, 均線訊號10070)
 
 
 def test_long_divergence_immediate_entry():
@@ -72,6 +72,18 @@ def test_long_divergence_immediate_entry():
     sig = res.signals[0]
     assert sig.side == Side.LONG and sig.reason == "KD背離向上"
     assert sig.price == 9949 and sig.stop == 9930  # combined 停損＝min(端點B 9936, 均線訊號9930)
+
+
+def test_ma_signal_stop_formula_matches_book():
+    """p.14（IMG_8463）：空單均線訊號停損＝收盤+(20−個位數)，個位數0時為20點；
+    非買進公式(10+個位數)的鏡像互換。"""
+    from wangtrader.core import Side
+    from wangtrader.methods.q2_06_02_kd_divergence import _ma_signal_stop
+
+    assert _ma_signal_stop(7665, Side.SHORT) == 7680  # 個位數5 → +(20-5)=15
+    assert _ma_signal_stop(8636, Side.SHORT) == 8650  # 個位數6 → +(20-6)=14
+    assert _ma_signal_stop(7900, Side.SHORT) == 7920  # 個位數0 → +20
+    assert _ma_signal_stop(7905, Side.LONG) == 7890  # 個位數5 → -(10+5)=15
 
 
 def test_extra_cross_violates_c5_no_signal():
@@ -96,7 +108,7 @@ def test_far_stop_uses_pullback_limit_order():
     res = run(KdDivergence(stop_points=5), bars)
     sig = res.signals[0]
     assert sig.reason == "KD背離向下(補進場)"
-    assert sig.stop == 10064 and sig.price == 10059  # limit = stop - stop_points
+    assert sig.stop == 10070 and sig.price == 10065  # limit = stop - stop_points
 
 
 def test_long_position_reverses_on_failed_bounce():

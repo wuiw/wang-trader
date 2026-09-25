@@ -43,6 +43,29 @@ def test_dragonfly_sell_signal():
     assert t.entry_price == 9790 and sig.stop == 9810  # 進場價 + 20
 
 
+def test_f1_ma_just_reversed_is_ignored_even_if_bar_count_looks_enough():
+    """F1（p.197，圖9-8）：均線剛由降轉升（谷點才剛形成），即使跌破/收回的兩根K線本身沒問題，
+    仍不能視為蜻蜓點水買訊——均線須已朝方向運行一段時間。長期下跌後單一根急拉尚不足以確立多方
+    趨勢，均線仍在追價、離真正翻揚沒幾根，此時的跌破/收回不合理。"""
+    def rows_from_closes(closes, start_open=10000):
+        rows = []
+        prev_c = start_open
+        for c in closes:
+            o = prev_c
+            h, l = (c + 2, o - 2) if c >= o else (o + 2, c - 2)
+            rows.append((o, h, l, c))
+            prev_c = c
+        return rows
+
+    falling = [10000 - 20 * (k + 1) for k in range(20)]  # 長期下跌至9600
+    rebound = [9620, 9640, 9660, 9680, 9700, 9720]  # 急拉反彈，MA10剛在最後一根轉為朝上
+    pullback = [9640]  # A：黑K，MA剛轉折沒幾根就跌破
+    recover = [9700]   # B：紅K，收盤收回MA之上
+    bars = make_bars(rows_from_closes(falling + rebound + pullback + recover), prev_day=PREV)
+    res = run(MaDragonfly(use_five_reversal=False), bars)
+    assert res.signals == []
+
+
 def test_f1_trend_too_short_ignored():
     """F1：均線本波方向持續根數不足 -> 不宜操作（p.199）。"""
     closes = _rising_prefix() + [10180, 10210]

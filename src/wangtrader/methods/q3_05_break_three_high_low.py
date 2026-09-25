@@ -12,16 +12,24 @@
     最高K線當根就跌破前三低亦成立（p.103 圖5-2），一般在最高K線後三根內發生（p.103）。
 跳空前提（p.103）：跳高開盤時，過三高須待出現層級1谷點才有效；跳低開盤時，破三低須待層級1峰點
   （層級1峰谷點沿用 core.pivots，level=1，只用已確認者，且左右鄰居須在同一交易日）。
+訊號K與極端K的距離上限（p.107）：訊號K須在極端K線（峰／谷點）之後最多 max_signal_delay（4）根
+  K線以內出現，超過視為無效。
+無遮蔽收盤（p.106）：訊號K的收盤須是自極端K線出現後最低（破三低）／最高（過三高）、未被期間
+  內其他K線低點（高點）遮蔽的收盤；若極端K與訊號K之間有任一根K線的低點低於（高點高於）訊號K
+  收盤，視為遮蔽，訊號不成立。
 進場（p.104–105, p.112–113）：訊號K距極端位置 ≤20點直接進場；20~40點可選「等拉回至距極端點20點內」
   或「直接進場（停損仍20點）」；>40點通常忽略不操作。
 停損（p.104–105, p.112–113）：設在極端點（p.113「上漲觸及 A 高點停損」；穿越 stop_tick 即出場），
   但距進場價最多 20 點（直接進場且距離較大時＝進場價 ± 20，p.105「當下進場，停損仍設在 20 點」）。
 停損後反手（p.113，圖5-12）：若行情尚未朝訊號方向獲利達15點即觸停損，其後K線收盤創session新高
   （原空單）／新低（原多單），可反手，反手以進場價為基準設20點停損。
-既有部位遇反向訊號（p.108–109）：新訊號K與原部位進場訊號K的實體重疊 → 忽略，不平倉反手；
-  不重疊 → 視為有效訊號，平倉並反手（交給引擎的預設反手機制處理）。
-出場：書中未明確說明本訊號的停利／移動停損機制，故本模組不另外發明停利規則，
-  出場只來自停損、停損後反手（換邊）、實體不重疊時的反向訊號反手，以及收盤強制平倉。
+既有部位遇反向訊號（p.108–109, 111）：新訊號K與原部位進場訊號K的實體重疊 → 忽略，不平倉反手；
+  不重疊 → 視為有效訊號，平倉並反手（交給引擎的預設反手機制處理）。此「重疊須忽略」規則只適用於
+  原部位仍持有中的情況（p.111）：若原部位已先行平倉（例如已依15點折返規則出場），後出現的反向訊號
+  即使實體侵入也不算重疊，視為全新獨立訊號（本模組只在 ctx.pos 仍為原方向時才套用重疊檢查，天然符合此前提）。
+出場（p.111，新增）：折返平倉——獲利曾達 retrace_trigger（15點）後又折返回進場價（含）以下，
+  即撤單平倉了結（沿用 core.exits.retrace_exit）。除此之外書中未明確說明本訊號其他的停利／移動
+  停損機制，出場來源為：停損、折返平倉、停損後反手（換邊）、實體不重疊時的反向訊號反手，以及收盤強制平倉。
 
 週期：不限（書中以5分鐘K線示範，程式不假設週期）。所有門檻以點數／根數表示。
 """
@@ -33,6 +41,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from wangtrader.core import Context, Order, Side, Strategy
+from wangtrader.core.exits import retrace_exit
 from wangtrader.core.pivots import Pivot, confirmed_before, find_pivots
 
 METHOD_ID = "q3-05"
@@ -50,6 +59,8 @@ class Params:
     reversal_profit_threshold: float = 15.0  # 停損反手資格門檻：未達此獲利觸停損才可反手（p.113）
     require_pivot_after_gap: bool = True  # 跳空前提（p.103），原文明文規則，預設開啟
     pivot_level: int = 1  # 層級1峰谷點（p.103）
+    max_signal_delay: int = 4  # C4：訊號K須在極端K後最多此根數以內（p.107）
+    retrace_trigger: float = 15.0  # 折返平倉門檻（p.111）
 
 
 class BreakThreeHighLow(Strategy):
@@ -100,8 +111,18 @@ class BreakThreeHighLow(Strategy):
 
     # ---------- 訊號偵測 ----------
 
+    @staticmethod
+    def _is_masked(df: pd.DataFrame, extreme_idx: int, i: int, close: float, side: Side) -> bool:
+        """C5：極端K與訊號K之間，是否有K線的低點更低（破三低）/高點更高（過三高），遮蔽了訊號K的收盤（p.106）。"""
+        if i <= extreme_idx + 1:
+            return False
+        window = df.iloc[extreme_idx + 1 : i]
+        if side == Side.SHORT:
+            return bool((window["low"] < close).any())
+        return bool((window["high"] > close).any())
+
     def detect(self, df: pd.DataFrame, i: int, st: dict) -> tuple[Side, float, int] | None:
-        """判斷第 i 根是否成立 C1-C3（不含跳空前提與距離過濾）。回傳 (方向, 極端價, 極端K索引)。"""
+        """判斷第 i 根是否成立 C1-C5（不含跳空前提與距離過濾）。回傳 (方向, 極端價, 極端K索引)。"""
         n = self.p.lookback
         if i < n or df.at[i, "bar_no"] < n:  # 本交易日內前面要有 n 根K線可比較（p.104）
             return None
@@ -110,10 +131,16 @@ class BreakThreeHighLow(Strategy):
         window_high = df["high"].iloc[i - n:i].max()
         if (st["h_idx"] is not None and st["h_valid"]
                 and b["close"] < p1["low"] and b["close"] < window_low):
-            return Side.SHORT, st["h_val"], st["h_idx"]
+            h_idx = st["h_idx"]
+            if i - h_idx <= self.p.max_signal_delay and not self._is_masked(df, h_idx, i, float(b["close"]), Side.SHORT):
+                return Side.SHORT, st["h_val"], h_idx
+            return None
         if (st["l_idx"] is not None and st["l_valid"]
                 and b["close"] > p1["high"] and b["close"] > window_high):
-            return Side.LONG, st["l_val"], st["l_idx"]
+            l_idx = st["l_idx"]
+            if i - l_idx <= self.p.max_signal_delay and not self._is_masked(df, l_idx, i, float(b["close"]), Side.LONG):
+                return Side.LONG, st["l_val"], l_idx
+            return None
         return None
 
     def _stop(self, side: Side, entry: float, ext: float) -> float:
@@ -145,6 +172,13 @@ class BreakThreeHighLow(Strategy):
         b = df.iloc[i]
         st = self._track_pre(df, i)
         result: list[Order] | None = None
+
+        # 0. 折返平倉（p.111）：獲利曾達 retrace_trigger 後又折返回進場價 → 撤單平倉
+        if ctx.pos is not None:
+            ex = retrace_exit(ctx, p.retrace_trigger, 0.0)
+            if ex is not None:
+                self._track_post(df, i, st)
+                return [ex]
 
         # 1. 停損：判斷是否具備反手資格（未達15點獲利即觸停損）
         if ctx.stopped is not None:

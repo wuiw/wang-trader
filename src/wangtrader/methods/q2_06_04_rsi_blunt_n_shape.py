@@ -12,9 +12,14 @@
   倒 N 型反轉（空）：A →(1) 自 A 拉回形成的層級 2 谷點 p1（谷點形成前若出現更低谷點，(1)隨之下移）
     →(2) 反彈（不得回到 A 的高度，p.235）→(3) 收盤「無遮蔽」跌破 (1)（低於 p1 及 p1 之後所有K線低點）
     → 放空訊號，停損參考 A。
-  鈍化續勢 N 型（多）：0＝p1 →(1) p1 之後的層級 2 峰點 k（取最高者）→(2) 拉回不破 0（p.235「谷點2必須高於C」）
-    →(3) 收盤「無遮蔽」突破 (1)、且過 A 峰點（p.237「向上走 N 型過 A 峰點」）→ 買進訊號，停損參考 0。
+  鈍化續勢 N 型（多）：0＝p1 →(1) p1 之後的層級 2 峰點 k（取最高者）→(2) 拉回不破 0，
+    含同低即作廢（C4b，p.235「谷點2必須高於C」、p.238「(2)不可與(0)同低」）
+    →(3) 收盤「無遮蔽」突破 (1)、且過 A 峰點（p.237「向上走 N 型過 A 峰點」），
+    且突破幅度距 A 不超過 max_blunt_overshoot（預設20點，C5b/C6b，p.238「不宜追價」）→ 買進訊號，停損參考 0。
   兩者並存，先成立者為訊號（p.245）；反彈已達 A 的高度時，倒 N 型的可能性排除（p.235）。
+  命名：無鈍化（直接反轉，3.1(a)/3.2(a)）reason 為「RSI倒N型／RSI正N型」；鈍化（續勢，3.1(b)/3.2(b)）
+    reason 為「RSI鈍化正N型／RSI鈍化倒N型」，區分「無鈍化」（只需破自身峰谷點）與「鈍化」
+    （須同時過原觸發K線高低點）兩種不同嚴格程度的路徑（★依 p.233、238 補拍頁修正，見文件12節）。
   觸發點接續（p.235 圖6-57 B）：(1) 峰點 k 形成期間 RSI 又觸及 90 以上，且其後出現層級 2 谷點時，
     k 成為新的觀察起點 A'（原 p1 成為續勢 N 型的 0，k 為其 (1)、新谷點為其 (2)），同時觀察自 A' 的倒 N 型。
   峰點位移（p.241）：拉回谷點形成前，A 可向上位移，以 pivot_shift_max（1）次為限、且須在
@@ -25,7 +30,7 @@
 進場（p.234）：訊號當根收盤進場。
 停損（p.234：「可以取最高點 A 為停損位置，或照均線買賣策略的停損設置，亦可比較兩者取較高者，
   但仍宜控制停損點數在 20 點以內」）：stop_mode = "trig"（結構起點：倒N型＝A、N型＝0）
-  | "ma_signal"（第一章個位數公式：收盤∓(10+個位數)）| "combined"（取兩者較遠者）；
+  | "ma_signal"（第一章個位數公式：多 收盤−(10+個位數)、空 收盤+(20−個位數)）| "combined"（取兩者較遠者）；
   距離超過 stop_points（20）時改用 ma_signal（該公式必在 20 點內）。
 出場：書中未見固定停利規則；反手規則見下。
 
@@ -44,6 +49,8 @@
      跳空 < min_valid_gap_points（30）且不屬無縫接軌，亦忽略（p.243）。
   F6（推論）no_entry_after：臨近收盤忽略（p.237 圖 6-59），書中為「臨近收盤」的時鐘描述，
      做成可選參數，預設 None（關閉）。
+  F7/C4b 鈍化續勢結構拉回(2)與起始0點同低（同高）甚至更低（更高）→ 續勢作廢（p.238 圖6-60，含相等）。
+  F8/C5b/C6b 鈍化訊號突破（跌破）原極端K線幅度超過 max_blunt_overshoot（預設20點）→ 不宜追價，忽略（p.238）。
 
 週期：不限。所有門檻以點數／根數表示。
 """
@@ -77,6 +84,7 @@ class Params:
     stop_points: float = 20.0  # 停損上限（p.234「宜控制停損點數在 20 點以內」），超過改用 ma_signal
     stop_min_offset: float = 10.0  # 均線訊號停損法固定部分（q2-01 p.13）
     stop_integer_points: float = 20.0  # 均線訊號停損法整數價位固定點數（q2-01 p.13）
+    max_blunt_overshoot: float = 20.0  # C5b/C6b：鈍化續勢訊號突破原極端K線幅度上限（p.238）
     gap_filter: bool = False  # F5，預設關閉（推論）
     seamless_gap_points: float = 10.0  # 無縫接軌門檻（p.244）
     min_valid_gap_points: float = 30.0  # 有效起點跳空門檻（p.243）
@@ -107,9 +115,15 @@ class _NTrack:
 
 
 def _digit_stop(side: Side, close_price: float, min_offset: float, integer_points: float) -> float:
-    """均線訊號停損法（q2-01 p.13）：收盤 ∓ (10 + 個位數)，整數價位固定 integer_points。"""
+    """均線訊號停損法（q2-01 p.13–14）：多＝收盤 −(10 + 個位數)；空＝收盤 +(20 − 個位數)；
+    個位數 0 時固定 integer_points（p.14 例：7665→7680、8636→8650）。"""
     digit = int(round(close_price)) % 10
-    pts = integer_points if digit == 0 else min_offset + digit
+    if digit == 0:
+        pts = integer_points
+    elif side == Side.LONG:
+        pts = min_offset + digit
+    else:
+        pts = 2 * min_offset - digit
     return close_price - pts if side == Side.LONG else close_price + pts
 
 
@@ -160,6 +174,7 @@ class RsiBluntNShape(Strategy):
         hit = rsi_i >= p.ob_extreme if sh else rsi_i <= p.os_extreme
         opp_hit = rsi_i <= p.os_extreme if sh else rsi_i >= p.ob_extreme
         beyond = (lambda a, b: a > b) if sh else (lambda a, b: a < b)  # a 比 b 更朝觸發方向
+        beyond_eq = (lambda a, b: a >= b) if sh else (lambda a, b: a <= b)  # 含同值（C4b「同低甚至更低」）
         p1_kind, k_kind = ("trough", "peak") if sh else ("peak", "trough")
         rev_side, cont_side = (Side.SHORT, Side.LONG) if sh else (Side.LONG, Side.SHORT)
         col_far, col_near = ("low", "high") if sh else ("high", "low")  # far=反轉突破方向的影線, near=觸發方向的影線
@@ -249,14 +264,17 @@ class RsiBluntNShape(Strategy):
                 n0_price, n1_i, n1_price = None, -1, 0.0
             if n1_i >= 0:
                 pull = df[col_far].iloc[n1_i + 1:i + 1]
-                if len(pull) and beyond(n0_price, pull.min() if sh else pull.max()):
-                    tr.cont_off = True  # (2) 越過 0（p.235「谷點2必須高於C」）
+                # C4b（p.238圖6-60）：拉回(2)不可與起始0點同低（同高）甚至更低（更高），含相等
+                if len(pull) and beyond_eq(n0_price, pull.min() if sh else pull.max()):
+                    tr.cont_off = True  # (2) 越過或觸及 0（p.235「谷點2必須高於C」；p.238「(2)不可與(0)同低」）
                 else:
                     ref = max(n1_price, tr.trig_price) if sh else min(n1_price, tr.trig_price)
                     if i - 1 > n1_i:
                         seg = df[col_near].iloc[n1_i + 1:i]
                         ref = max(ref, seg.max()) if sh else min(ref, seg.min())
-                    if beyond(close, ref):
+                    # C5b/C6b（p.238）：突破（跌破）原極端K線幅度不宜超過約20點，過遠不宜追價
+                    overshoot = abs(close - tr.trig_price)
+                    if beyond(close, ref) and overshoot <= p.max_blunt_overshoot:
                         out = (cont_side, "cont", float(n0_price), tr.trig_i)
                         tr.reset()
                         return out
@@ -300,8 +318,8 @@ class RsiBluntNShape(Strategy):
 
         entry = float(df.at[i, "close"])
         stop = self._stop(side, entry, float(ref))
-        if kind == "rev":
-            name = "RSI鈍化倒N型" if side == Side.SHORT else "RSI鈍化正N型"
-        else:
-            name = "RSI鈍化續勢N型" if side == Side.LONG else "RSI鈍化續勢倒N型"
+        if kind == "rev":  # 無鈍化（直接反轉）：只需突破/跌破N型/倒N型自身峰谷點（3.1(a)/3.2(a)，p.233-234）
+            name = "RSI倒N型" if side == Side.SHORT else "RSI正N型"
+        else:  # 鈍化（續勢）：須同時突破/跌破自身峰谷點與原觸發極端K線（3.1(b)/3.2(b)，p.233,238）
+            name = "RSI鈍化正N型" if side == Side.LONG else "RSI鈍化倒N型"
         return [Order.enter(side, stop=stop, reason=name, trig_i=trig_i, ref_price=float(ref))]

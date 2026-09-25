@@ -16,6 +16,8 @@
 停損後反手（p.145-147, 153）：同一根停損K線，若持倉期間未曾達15點獲利，且該停損K線收盤
   突破（原空單）／跌破（原多單）訊號K的反方向極端點，則停損出場後立即反手，同樣以（反手）
   收盤價為基準設20點停損。
+時間停滯出場（p.148，新增）：進場後若既未觸及20點停損、也未達15點折返停利，經過約
+  stall_minutes 分鐘仍無明確輸贏，撤單離場觀望（書中「約一小時」，以K線時間戳計算，不綁週期）。
 
 週期：不限；「開盤首根」用 bar_no==0 判斷。所有門檻以點數表示。
 """
@@ -32,12 +34,22 @@ from wangtrader.core.exits import retrace_exit
 METHOD_ID = "q3-07"
 
 
+
+def _elapsed_minutes(df: pd.DataFrame, entry_i: int, i: int) -> float:
+    """進場K線到第 i 根K線經過的分鐘數（用 prepare() 保留的 time 欄；非時間戳時退回根數）。"""
+    t0, t1 = df.at[entry_i, "time"], df.at[i, "time"]
+    try:
+        return (t1 - t0).total_seconds() / 60.0
+    except (TypeError, AttributeError):
+        return float(i - entry_i)
+
 @dataclass
 class Params:
     gap_threshold: float = 40.0  # 開盤乖離平盤門檻（p.138-139）
     shadow_max: float = 3.0  # 訊號K反方向影線上限（p.138-139）
     stop_points: float = 20.0  # 停損點數，以訊號K收盤價為基準（p.140-141, 144）
     profit_trigger: float = 15.0  # 折返停利／反手資格門檻（p.145, 147）
+    stall_minutes: float | None = 60.0  # 時間停滯出場：進場後約一小時（p.148），以 K 線時間戳計算，不綁週期；None 關閉
 
 
 class OpeningBar(Strategy):
@@ -97,6 +109,11 @@ class OpeningBar(Strategy):
             ex = retrace_exit(ctx, p.profit_trigger, keep=0.0)
             if ex:
                 result = [ex]
+
+        # 2b. 時間停滯出場（p.148）：約 stall_minutes 分鐘仍無明確輸贏（未觸停損、未達折返停利）→ 撤單離場
+        if result is None and ctx.pos is not None and p.stall_minutes is not None:
+            if _elapsed_minutes(ctx.df, ctx.pos.entry_i, i) >= p.stall_minutes:
+                result = [Order.exit("時間停滯出場")]
 
         # 3. 開盤首根訊號
         if result is None and ctx.pos is None:

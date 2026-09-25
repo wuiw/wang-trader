@@ -10,8 +10,10 @@
     收盤 ≥ 母K開盤價，且收盤突破子K最高點。
     訊號K最低點不低於母K最低點（書中僅明確空方版本 C4，多方鏡像未見原文條列，
     以 mirror_low_bound 開關標示為推論，預設開啟）。
-進場（p.70）：訊號K收盤確認後即以收盤價直接進場（不論距母K極端點遠近；書中另允許
-  等拉回至距極端點 20 點內補進場，本模組採「直接進場」）。
+進場（p.70, 73）：訊號K距母K極端點 ≤ stop_points → 收盤直接進場；距離較大 → far_entry_mode：
+  "pullback" 補進場等待拉回（限價，max_wait 根內未成交即失效，p.73）、"direct" 直接進場但停損固定
+  stop_points、"ignore" 忽略。距離 ≥ giveup_distance（40 點，p.73）時原則上放生不操作，直接忽略
+  （即使書中允許執意進場也僅能等拉回，不可直接以進場價±20點方式進場，本模組簡化為一律忽略）。
 停損（p.70）：設在母K極端點（頂母子＝母K最高點，穿越 stop_tick 即出場），但距進場價最多
   stop_points——p.70「A 的高點超過訊號收盤 30 點，在設停損位置自然不能超過 20 點限制」、
   圖3-4「訊號K距離最低點剛好 20 點…設停損 20 點」；本書極端位置訊號一貫以極端點為停損、
@@ -22,9 +24,12 @@
   F3 母K僅符合最高/最低點或收盤其中一項 → 不是合法母K線（屬訊號定義本身，p.74）
   F4 訊號K影線觸及母K開盤價但收盤未真正跨越 → 不成立（僅檢查收盤，屬訊號定義本身，p.71）
   F5 必須在極端位置：盤中震幅 ≥ extreme_range，或距平盤 ≥ extreme_from_prev_close（p.68-69）
-出場：書中本章未針對本訊號給出停利規則（範例提及「五黑遇首紅平倉」屬另一章 q3-06，
-  獨立模組不得引用，故不實作）；exit_mode 提供 "ladder"/"ma"/"sar"/"none"（預設 none）
-  作為推論性的技術選項，未經原文證實。
+  F6 訊號K距母K極端點 ≥ giveup_distance（40點）→ 放棄不操作（p.73）
+出場（p.72-73，新增）：折返平倉——獲利曾達 retrace_trigger 點（書中未給明確門檻數字，示範為
+  16 點，以「曾真正獲利」為門檻，預設 1 點）後又折返回進場價（含）以下，即撤單平倉了結，不論
+  是否達一般 20 點停利目標（沿用 core.exits.retrace_exit）。此規則恆常啟用（retrace_to_entry）；
+  exit_mode 另提供 "ladder"/"ma"/"sar"/"none"（預設 none）作為推論性技術選項，未經原文證實，
+  與折返平倉可疊加使用。
 
 週期：不限。所有門檻以點數表示。
 """
@@ -37,7 +42,7 @@ import pandas as pd
 
 from wangtrader.core import Context, Order, Side, Strategy
 from wangtrader.core.bars import is_extreme_position
-from wangtrader.core.exits import ladder_exit, ma_exit, sar_exit
+from wangtrader.core.exits import ladder_exit, ma_exit, retrace_exit, sar_exit
 from wangtrader.core.indicators import sar, sma
 
 METHOD_ID = "q3-03"
@@ -47,10 +52,15 @@ METHOD_ID = "q3-03"
 class Params:
     stop_points: float = 20.0  # 單筆最大風險（p.70）
     stop_tick: float = 1.0  # 母K極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+    far_entry_mode: str = "pullback"  # 距離 > stop_points 時："pullback" | "direct" | "ignore"（p.70, 73）
+    max_wait: int = 10  # 補進場等待根數（書中未給明確數字，沿用第一章慣例）
+    giveup_distance: float = 40.0  # F6：距母K極端點 ≥ 此值原則上放生不操作（p.73）
     extreme_range: float = 30.0  # p.68-69
     extreme_from_prev_close: float = 40.0  # p.68-69
     mirror_low_bound: bool = True  # 推論：底母子鏡像「訊號K最低點不低於母K最低點」（書中僅空方 C4 有明文）
-    exit_mode: str = "none"  # 推論；書中未提供本訊號出場規則
+    retrace_to_entry: bool = True  # 折返平倉（p.72-73），恆常啟用
+    retrace_trigger: float = 1.0  # 折返平倉的「曾真正獲利」門檻（書中未給明確數字，示範獲利16點）
+    exit_mode: str = "none"  # 推論；書中未提供本訊號另外的移動停利規則
     profit_target: float = 20.0
     ma_period: int = 10
 
@@ -104,9 +114,20 @@ class MotherChild(Strategy):
                 return Side.LONG, float(m["low"])
         return None
 
+    def _stop(self, side: Side, entry: float, ext: float) -> float:
+        """停損＝母K極端點外 stop_tick，但距進場價最多 stop_points（p.70）。"""
+        p = self.p
+        if side == Side.LONG:
+            return max(ext - p.stop_tick, entry - p.stop_points)
+        return min(ext + p.stop_tick, entry + p.stop_points)
+
     def on_bar(self, ctx: Context):
         p, df, i = self.p, ctx.df, ctx.i
         if ctx.pos is not None:
+            if p.retrace_to_entry:  # 折返平倉（p.72-73）：獲利曾為正、其後折返回進場價 → 撤單平倉
+                ex = retrace_exit(ctx, p.retrace_trigger, 0.0)
+                if ex is not None:
+                    return [ex]
             ex = {
                 "ladder": lambda: ladder_exit(ctx, p.profit_target),
                 "ma": lambda: ma_exit(ctx, "ma", p.profit_target),
@@ -126,10 +147,17 @@ class MotherChild(Strategy):
 
         b = df.iloc[i]
         name = "頂母子" if side == Side.SHORT else "底母子"
-        entry = float(b["close"])
-        # 停損＝母K極端點外 stop_tick，但距進場價最多 stop_points（p.70）
-        if side == Side.LONG:
-            stop = max(ext - p.stop_tick, entry - p.stop_points)
-        else:
-            stop = min(ext + p.stop_tick, entry + p.stop_points)
-        return [Order.enter(side, stop=stop, reason=name, extreme=ext)]
+        close = float(b["close"])
+        dist = abs(close - ext)
+        # F6：距母K極端點達 giveup_distance（40點）以上，原則上放生不操作（p.73）
+        if dist >= p.giveup_distance:
+            return None
+        if dist <= p.stop_points:
+            return [Order.enter(side, stop=self._stop(side, close, ext), reason=name, extreme=ext)]
+        if p.far_entry_mode == "direct":
+            return [Order.enter(side, stop=self._stop(side, close, ext), reason=name + "(直接進場)", extreme=ext)]
+        if p.far_entry_mode == "pullback":
+            limit = ext + p.stop_points * int(side)
+            return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=self._stop(side, limit, ext),
+                                      reason=name + "(補進場)", extreme=ext)]
+        return None  # far_entry_mode == "ignore"

@@ -3,8 +3,8 @@ from datetime import time
 
 from helpers import make_bars
 
-from wangtrader.core import Side, run
-from wangtrader.methods.q2_01_ma_three_step import MAThreeStep
+from wangtrader.core import Context, Position, Side, run
+from wangtrader.methods.q2_01_ma_three_step import MAThreeStep, _digit_stop
 
 PREV = (90, 95, 85, 90)  # 平盤 90
 
@@ -48,7 +48,7 @@ def test_short_three_step_signal():
     assert len(res.signals) == 1
     sig = res.signals[0]
     assert sig.side == Side.SHORT and sig.reason == "均線三步驟放空"
-    assert sig.price == 88 and sig.stop == 106  # 88 個位數8 -> 停損 88+18=106
+    assert sig.price == 88 and sig.stop == 100  # 88 個位數8 -> 停損 88+(20-8)=100（p.14公式）
 
 
 def test_reset_when_pullback_closes_cross_ma():
@@ -172,3 +172,81 @@ def test_ladder_moves_only_when_close_and_high_both_new_and_breach_needs_one_poi
     res = run(MAThreeStep(ma_period=3, pivot_level=1, exit_mode="ladder"), bars)
     t = res.trades[0]
     assert t.reason_out == "固定點數移動停利" and t.exit_i == 15 and t.exit_price == 125
+
+
+def test_short_stop_formula_matches_book_examples():
+    """回歸測試（問題彙整.md C）：空單停損＝收盤+(20−個位數)，個位數0固定20點（p.14 IMG_8463 原文範例）。
+    先前程式誤用鏡像公式 收盤+(10+個位數)，只有個位數5時數值相同。"""
+    assert _digit_stop(Side.SHORT, 7665, 10.0, 20.0) == 7680
+    assert _digit_stop(Side.SHORT, 7701, 10.0, 20.0) == 7720
+    assert _digit_stop(Side.SHORT, 8636, 10.0, 20.0) == 8650
+    assert _digit_stop(Side.SHORT, 7700, 10.0, 20.0) == 7720  # 整數價位固定20點
+    assert _digit_stop(Side.LONG, 7905, 10.0, 20.0) == 7890  # 多方公式不變（p.13）
+
+
+def test_ma_tier_exit_switches_from_slow_to_fast_ma_after_profit():
+    """6.4（p.42-45）：達獲利目標後先用 MA(ma_period) 為停利線；獲利達 ma_fast_arm_profit 後改用 MA(ma_fast_period)。"""
+    strat = MAThreeStep(profit_target=20.0, ma_fast_arm_profit=50.0)
+    df = pd.DataFrame({
+        "close": [100.0, 140.0],
+        "ma": [95.0, 145.0],
+        "ma_fast": [95.0, 135.0],
+    })
+    pos_big = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=155.0)  # 獲利55點 >=50 -> 用MA10
+    ctx_big = Context(i=1, df=df, pos=pos_big, trades=[], stopped=None)
+    assert strat._ma_tier_exit(ctx_big) is None  # 收盤140 > MA10(135)，不出場
+
+    pos_small = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=125.0)  # 獲利25點 <50 -> 用MA30
+    ctx_small = Context(i=1, df=df, pos=pos_small, trades=[], stopped=None)
+    order = strat._ma_tier_exit(ctx_small)
+    assert order is not None and order.reason == "均線停利"  # 收盤140 < MA30(145)，出場
+
+
+def test_range_exit_uses_recent_window():
+    """6.5（p.46-49）：達獲利目標後取最近 range_bars 根K線高/低點供停利參考，觸及＝影線超過停利點1點。"""
+    strat = MAThreeStep(profit_target=20.0, range_bars=3, range_breach_points=1.0)
+    df = pd.DataFrame({
+        "low": [99.0, 99.0, 95.0, 98.0, 97.0],
+        "high": [101.0, 130.0, 126.0, 121.0, 118.0],
+    })
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=130.0)  # 獲利30 >=20
+    # 區間(i-3..i-1) 低點最低 95 -> 觸發價 94
+    assert strat._range_exit(Context(i=4, df=df, pos=pos, trades=[], stopped=None)) is None  # 本根低點97 > 94
+    df.loc[4, "low"] = 93.0
+    order = strat._range_exit(Context(i=4, df=df, pos=pos, trades=[], stopped=None))
+    assert order is not None and order.reason == "區間高低點停利"
+
+
+def test_range_exit_floors_at_original_stop_when_window_is_worse():
+    """6.5第3點（p.48）：計算出的區間低（高）點比原始停損更不利時，不可移動，須維持原始停損。"""
+    strat = MAThreeStep(profit_target=20.0, range_bars=3, range_breach_points=1.0)
+    df = pd.DataFrame({
+        "low": [99.0, 60.0, 62.0, 65.0, 70.0],  # 區間最低點60，遠劣於原始停損90
+        "high": [101.0, 130.0, 126.0, 121.0, 118.0],
+    })
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=130.0)
+    order = strat._range_exit(Context(i=4, df=df, pos=pos, trades=[], stopped=None))
+    # 停利參考需維持原始停損90（觸發價89），本根低點70已跌破；若誤用區間低點60（觸發價59）則不會出場
+    assert order is not None and order.reason == "區間高低點停利"
+
+
+def test_fixed_points_exit():
+    """6.6（p.28）：窄幅盤整適用，達 fixed_exit_points 點即出場。"""
+    strat = MAThreeStep(fixed_exit_points=10.0)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=111.0)
+    df_hit = pd.DataFrame({"close": [100.0, 111.0]})
+    assert strat._fixed_points_exit(Context(i=1, df=df_hit, pos=pos, trades=[], stopped=None)) is not None
+    df_miss = pd.DataFrame({"close": [100.0, 109.0]})
+    assert strat._fixed_points_exit(Context(i=1, df=df_miss, pos=pos, trades=[], stopped=None)) is None
+
+
+def test_breakeven_exit_after_profit_returns_to_entry():
+    """6.7求不賠（p.32-33）：獲利曾達 breakeven_arm_points 後回到進場價，立即出場，優先於 exit_mode。"""
+    rows = LONG_BASE + [
+        (112, 130, 111, 128),  # 獲利達16點（>=15）→ 求不賠啟動
+        (128, 129, 111, 112),  # 收盤回到進場價 → 立即出場
+    ]
+    bars = make_bars(rows, prev_day=PREV)
+    res = run(MAThreeStep(ma_period=3, pivot_level=1, exit_mode="none", breakeven_arm_points=15.0), bars)
+    t = res.trades[0]
+    assert t.reason_out == "折返停利" and t.exit_price == 112

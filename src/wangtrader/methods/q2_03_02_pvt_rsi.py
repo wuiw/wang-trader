@@ -125,9 +125,15 @@ def _group_by_confirm(pivots: list[_Pivot]) -> dict[int, list[_Pivot]]:
 
 
 def _digit_stop(side: Side, close_price: float, min_offset: float, integer_points: float) -> float:
-    """個位數停損公式（推論，比照 q2-03-01／第一章均線策略，本模組自行複製）。"""
+    """個位數停損公式（推論，比照 q2-03-01／第一章均線策略，本模組自行複製）：
+    多＝收盤−(10+個位數)；空＝收盤+(20−個位數)（非鏡像，p.14原文明確列出）；整數價位固定 integer_points 點。"""
     digit = int(round(close_price)) % 10
-    pts = integer_points if digit == 0 else min_offset + digit
+    if digit == 0:
+        pts = integer_points
+    elif side == Side.LONG:
+        pts = min_offset + digit
+    else:
+        pts = integer_points - digit
     return close_price - pts if side == Side.LONG else close_price + pts
 
 

@@ -11,6 +11,11 @@
         須等再次休息形成新峰位（p.156「就得尋找另一次峰位」）；等待期間若收盤先跌破MA10，流程
         失效須重新開始（p.159）。
   空方：與多方鏡像（跌破MA10 → 破新低 → 休息 → 谷位濾網 → 收盤跌破谷位濾網）。
+  L7/S7（p.160-161）：休息期間若又形成另一個「較近」的層級1峰（谷）點──即較低的峰點／較高的
+        谷點，較容易被突破──濾網改用該較近者，不必等突破原先較高（低）的峰（谷）點；前提仍是自
+        第一個峰（谷）點起收盤都未跌破（突破）MA10，否則整個流程失效（圖8-5：A為第一個層級1峰
+        點，其後在較低的B形成第二個層級1峰點，只要突破B即成立買訊，不必等突破A）。本模組用
+        `find_pivots(level=1)` 找已確認的層級1峰谷點實作，見 `_nearer_pivot`。
   rest_extreme_filter=True（推論，預設關閉）：改以「休息期間K線的最高/最低點」作濾網，對應
         p.172 圖8-17 圖說「E 收盤跌破休息中縮腳點 D 的低點即成空訊，不必等跌破 C 的低點」；
         此讀法與 p.156-158 的定義文字（濾網＝峰位C／谷位B）不一致，預設不採用。
@@ -116,6 +121,7 @@ class MaBreakout(Strategy):
         ext = float("nan")  # 攻擊階段的極值＝休息階段的峰位/谷位濾網
         rest_ext = float("nan")  # 休息期間K線的極值（rest_extreme_filter 用）
         turn_p, turn_i = float("nan"), -1
+        top_i = -1  # 目前 ext 對應之層級1峰（谷）點 bar index，供 L7/S7 用
 
         def mark(i: int, side: int) -> None:
             sig_side[i] = side
@@ -125,6 +131,25 @@ class MaBreakout(Strategy):
             carryover[i] = sess[turn_i] != sess[i]
             turn_at_open[i] = (not carryover[i]) and bar_no[turn_i] == 0
 
+        pivots1 = find_pivots(df, level=1)  # 層級1峰谷點，供 L7/S7「較近峰谷點」規則使用
+
+        def nearer_pivot(kind: str, better: str, top_i: int, i: int, ext: float) -> float | None:
+            """L7/S7（p.160-161）：自本波第一個層級1峰(谷)點 top_i 之後、目前 i 之前，若已確認出現
+            「較近」（峰取較低者／谷取較高者，即較容易被突破者）的層級1峰(谷)點，回傳其價位；否則
+            回傳 None（沿用原 ext）。"""
+            best = None
+            for pv in pivots1:
+                if pv.kind != kind or pv.index <= top_i or pv.index >= i or pv.confirm > i:
+                    continue
+                if sess[pv.index] != sess[i]:
+                    continue
+                if better == "lower" and pv.price >= ext:
+                    continue
+                if better == "higher" and pv.price <= ext:
+                    continue
+                best = pv  # pivots1 依 index 遞增排序，留到最後＝最近者
+            return best.price if best is not None else None
+
         for i in range(n):
             if ma[i] != ma[i]:
                 continue
@@ -132,36 +157,52 @@ class MaBreakout(Strategy):
             # 收盤穿越均線：趨勢轉折起點（p.156-157, 159）
             if c > m and state in (None, "attack_down", "rest_down"):
                 state, ext, turn_p, turn_i = "attack_up", high[i], c, i
+                top_i = i
                 continue
             if c < m and state in (None, "attack_up", "rest_up"):
                 state, ext, turn_p, turn_i = "attack_down", low[i], c, i
+                top_i = i
                 continue
             if state == "attack_up":
                 if high[i] > ext:
                     ext = high[i]
+                    top_i = i
                 else:  # 高點未創新高 → 休息，濾網＝休息前最高點 ext
                     state, rest_ext = "rest_up", high[i]
             elif state == "rest_up":
                 filt = rest_ext if self.p.rest_extreme_filter else ext
+                if not self.p.rest_extreme_filter:
+                    near = nearer_pivot("peak", "lower", top_i, i, ext)  # L7
+                    if near is not None:
+                        filt = near
                 if c > filt:
                     mark(i, 1)
                     state, ext = "attack_up", max(ext, high[i])
+                    top_i = i
                 elif high[i] > ext:  # 只有影線突破峰位 → 失敗，另尋下一個峰位（p.156）
                     state, ext = "attack_up", high[i]
+                    top_i = i
                 else:
                     rest_ext = max(rest_ext, high[i])
             elif state == "attack_down":
                 if low[i] < ext:
                     ext = low[i]
+                    top_i = i
                 else:
                     state, rest_ext = "rest_down", low[i]
             elif state == "rest_down":
                 filt = rest_ext if self.p.rest_extreme_filter else ext
+                if not self.p.rest_extreme_filter:
+                    near = nearer_pivot("trough", "higher", top_i, i, ext)  # S7
+                    if near is not None:
+                        filt = near
                 if c < filt:
                     mark(i, -1)
                     state, ext = "attack_down", min(ext, low[i])
+                    top_i = i
                 elif low[i] < ext:
                     state, ext = "attack_down", low[i]
+                    top_i = i
                 else:
                     rest_ext = min(rest_ext, low[i])
 

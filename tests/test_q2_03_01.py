@@ -4,7 +4,7 @@ from datetime import time
 from helpers import make_bars
 
 from wangtrader.core import Context, Position, Side, prepare, run
-from wangtrader.methods.q2_03_01_pvt_n_type import PVTNType
+from wangtrader.methods.q2_03_01_pvt_n_type import PVTNType, _digit_stop
 
 KW = dict(pivot_level=1, ladder_ignore_diff=2.0)
 
@@ -151,3 +151,71 @@ def test_giveback_exit_only_after_profit_target_reached():
     rows = LONG_BASE + [(104, 110, 103, 106), (106, 107, 92, 93), (93, 96, 92, 95)]
     res = run(PVTNType(ladder_exit=False, **KW), make_bars(rows))
     assert res.trades and not res.trades[0].reason_out.startswith("折返")
+
+
+def test_short_stop_formula_matches_book_examples():
+    """回歸測試（問題彙整.md C）：空單停損＝收盤+(20−個位數)，個位數0固定20點（p.14，本章p.100沿用第一章公式）。
+    先前程式誤用鏡像公式 收盤+(10+個位數)，只有個位數5時數值相同。"""
+    assert _digit_stop(Side.SHORT, 7665, 10.0, 20.0) == 7680
+    assert _digit_stop(Side.SHORT, 7701, 10.0, 20.0) == 7720
+    assert _digit_stop(Side.SHORT, 8636, 10.0, 20.0) == 8650
+    assert _digit_stop(Side.SHORT, 7700, 10.0, 20.0) == 7720  # 整數價位固定20點
+    assert _digit_stop(Side.LONG, 7905, 10.0, 20.0) == 7890  # 多方公式不變（p.13）
+
+
+def test_carry_over_enters_next_open_when_stop_not_broken():
+    """p.105-106：F4濾掉的訊號，隔日開盤第一根未跌破停損 → 沿用進場，停損不變。"""
+    day1 = make_bars(LONG_BASE)
+    day2 = make_bars([(104, 106, 100, 105)], start="2024-01-03 08:45")  # 低點100 > 停損90，未跌破
+    bars = pd.concat([day1, day2])
+    res = run(PVTNType(no_entry_after=time(0, 0), **KW), bars)
+    assert len(res.signals) == 1
+    sig = res.signals[0]
+    assert sig.side == Side.LONG and sig.reason == "PVT-N型買進(隔日延續)" and sig.stop == 90
+    t = res.trades[0]
+    assert t.entry_price == 105  # 隔日開盤第一根收盤價進場
+
+
+def test_carry_over_discarded_when_stop_broken():
+    """p.105-106：隔日開盤第一根已跌破停損位置 → 訊號作廢，不進場。"""
+    day1 = make_bars(LONG_BASE)
+    day2 = make_bars([(104, 106, 85, 90)], start="2024-01-03 08:45")  # 低點85 <= 停損90 → 已跌破
+    bars = pd.concat([day1, day2])
+    res = run(PVTNType(no_entry_after=time(0, 0), **KW), bars)
+    assert res.signals == []
+
+
+def test_same_direction_reentry_after_exit_without_regime_switch():
+    """p.106：控盤未易主（PVT階梯未被突破）時，第一次訊號停利出場後，可重新尋找同方向結構再進場，
+    狀態機以前次(2)點接續作為新(0)點延續判斷（無需另立分支）。"""
+    rows = LONG_BASE + [
+        (104, 112, 103, 111),
+        (111, 112, 104, 105),  # 觸發折返5點停利出場（收盤105）
+        (105, 108, 100, 103),
+        (103, 106, 104, 105),
+        (105, 118, 104, 117),  # 收盤117突破新峰位112 → 第二次買進訊號
+    ]
+    bars = make_bars(rows)
+    res = run(PVTNType(giveback_points=5.0, ladder_exit=False, **KW), bars)
+    assert [s.side for s in res.signals] == [Side.LONG, Side.LONG]
+    assert res.trades[0].reason_out.startswith("折返")
+    assert res.trades[1].side == Side.LONG and res.trades[1].entry_price == 117
+
+
+def test_f2_exception_when_point2_is_within_threshold_at_confirmation():
+    """p.107：(0)距階梯原本超過門檻，但確認(3)時(2)距當時階梯已在門檻內 → 訊號仍視為有效。"""
+    from wangtrader.methods.q2_03_01_pvt_n_type import _Pivot
+
+    strat = PVTNType(max_dev_from_ladder=20.0, max_pattern_points=1000.0,
+                      max_drift_from_breakout=1000.0, max_bars_from_breakout=1000, **KW)
+    st = strat._fresh()
+    st["bull_ladder"] = 100.0
+    st["breakout_price"] = 100.0
+    st["breakout_i"] = 0
+    c0 = _Pivot(index=0, confirm=1, price=130.0, kind="trough")  # (0)距階梯30點 >20 門檻
+
+    st["LONG"]["c2"] = _Pivot(index=5, confirm=6, price=115.0, kind="trough")  # (2)距階梯15 ≤20 → 例外成立
+    assert strat._passes_filters(pd.DataFrame({"close": [140.0]}), 0, c0, 140.0, st, Side.LONG) is True
+
+    st["LONG"]["c2"] = _Pivot(index=5, confirm=6, price=125.0, kind="trough")  # (2)距階梯25 也超過門檻 → 無例外
+    assert strat._passes_filters(pd.DataFrame({"close": [140.0]}), 0, c0, 140.0, st, Side.LONG) is False

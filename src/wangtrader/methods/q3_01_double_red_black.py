@@ -2,9 +2,12 @@
 
 規格文件：methods/期貨奇績3/q3-01-頂底雙紅黑.md
 
-訊號（p.15）：
+訊號（p.15, 17）：
   頂雙黑（空）：前一根是當下盤中最高點的黑K，本根也是黑K且收盤跌破前一根最低點。
   底雙紅（多）：前一根是當下盤中最低點的紅K，本根也是紅K且收盤突破前一根最高點。
+  C3 極端點須獨一無二（p.17）：頂雙黑第一根黑K的最高點、底雙紅第一根紅K的最低點，
+    須為本交易日截至訊號K為止唯一一根達到該高（低）點的K線；若前面另有K線同高（同低，共頂／共底），
+    訊號不成立（圖1-4：C、D 同低，D 屬「共底紅K線」非底雙紅）。
 進場（p.15, 18–20）：極端點到收盤距離 ≤ stop_points → 收盤立刻進場；
   距離較大 → far_entry_mode："pullback" 掛限價等拉回到「極端點 ± stop_points」，
   max_wait 根內未成交即失效（預設，p.19–20）；"direct" 直接進場但停損固定 stop_points
@@ -21,7 +24,10 @@
   F5 no_entry_after：時間晚於此不做（p.37，書中為 12:30；預設關閉）
   F6 對立訊號不可侵入前一訊號K收盤：空訊收盤 ≤ 先前買訊收盤（買訊收盤 ≥ 先前空訊收盤）→ 忽略
      （p.56，第二章以「底雙紅之後的頂雙黑」為例）。未侵入的對立訊號在持倉中出現 → 平倉反手（p.56）。
-出場：exit_mode = "ladder" | "ma" | "sar" | "none"，達 profit_target 後啟動（p.32–35）。
+出場：exit_mode = "retracement" | "ladder" | "ma" | "sar" | "none"，達 profit_target 後啟動（p.28–35）。
+  "retracement"（折返點數停利，p.28–30，新增第4種）：達獲利目標後，若某根K線同時符合「自進場後
+  最高(低)K線的極端點」與「自進場後最高(低)K線的收盤」雙條件，即以其極端點扣（多單）／加（空單）
+  retrace_step 點設為新停利位置；只符合其一則不移動；收盤觸及即出場。
 
 週期：不限。所有門檻以點數／根數表示。
 """
@@ -54,6 +60,7 @@ class Params:
     opposite_signal_no_invade: bool = True  # F6，p.56
     exit_mode: str = "ladder"
     profit_target: float = 20.0
+    retrace_step: float = 20.0  # 折返點數停利的扣抵點數（p.28-30，exit_mode="retracement"）
     ma_period: int = 10
 
 
@@ -72,6 +79,15 @@ class DoubleRedBlack(Strategy):
         df["sar"], df["sar_trend"] = s["sar"], s["trend"]
         return df
 
+    @staticmethod
+    def _is_unique_extreme(df: pd.DataFrame, i: int, kind: str) -> bool:
+        """a（第 i-1 根）的極端點到第 i 根為止，是否本交易日唯一（無同高/同低，p.17 C3）。"""
+        a = df.iloc[i - 1]
+        sess_start = i - 1 - int(a["bar_no"])
+        window = df.iloc[sess_start : i + 1]
+        col = "high" if kind == "peak" else "low"
+        return int((window[col] == a[col]).sum()) == 1
+
     def detect(self, df: pd.DataFrame, i: int) -> tuple[Side, float] | None:
         """第 i 根收盤時是否成立訊號，回傳 (方向, 極端價)。"""
         if i < 1:
@@ -82,10 +98,12 @@ class DoubleRedBlack(Strategy):
         # 頂雙黑：a 為當下（到 a 為止）盤中最高的黑K
         if a["close"] < a["open"] and a["high"] >= a["sess_high"] and b["close"] < b["open"] and b["close"] < a["low"]:
             if b["high"] <= a["high"]:  # b 沒有再創新高，a 仍是最高點
-                return Side.SHORT, float(a["high"])
+                if self._is_unique_extreme(df, i, "peak"):  # C3：極端點須獨一無二（p.17）
+                    return Side.SHORT, float(a["high"])
         if a["close"] > a["open"] and a["low"] <= a["sess_low"] and b["close"] > b["open"] and b["close"] > a["high"]:
             if b["low"] >= a["low"]:
-                return Side.LONG, float(a["low"])
+                if self._is_unique_extreme(df, i, "trough"):
+                    return Side.LONG, float(a["low"])
         return None
 
     def _stop(self, side: Side, entry: float, ext: float) -> float:
@@ -142,6 +160,31 @@ class DoubleRedBlack(Strategy):
                                      reason=name + "(補進場)", extreme=ext)
         return None  # far_entry_mode == "ignore"
 
+    def _retracement_exit(self, ctx: Context) -> Order | None:
+        """折返點數停利（p.28-30）：達獲利目標後，若某根K線同時符合「自進場後最高(低)K線的
+        極端點」與「最高(低)K線的收盤」雙條件，以其極端點扣（多）/加（空）retrace_step 設為新停利位置；
+        只符合其中一項不移動；收盤觸及該停利位置即出場。"""
+        p, pos = self.p, ctx.pos
+        if pos is None or ctx.i <= pos.entry_i or pos.max_profit() < p.profit_target:
+            return None
+        b = ctx.bar()
+        long = pos.side == Side.LONG
+        close_key = "retr_close_ext"
+        prev_close_ext = pos.meta.get(close_key, pos.entry_price)
+        close_is_new = (b["close"] > prev_close_ext) if long else (b["close"] < prev_close_ext)
+        if close_is_new:
+            pos.meta[close_key] = float(b["close"])
+        high_is_new = (b["high"] >= pos.best) if long else (b["low"] <= pos.best)
+        if close_is_new and high_is_new:  # 雙條件同時成立才移動停利位置（p.28）
+            lvl = float(b["high"] - p.retrace_step) if long else float(b["low"] + p.retrace_step)
+            pos.meta["retr_level"] = lvl
+        lvl = pos.meta.get("retr_level")
+        if lvl is None:
+            return None
+        if (b["close"] <= lvl) if long else (b["close"] >= lvl):
+            return Order.exit("折返停利")
+        return None
+
     def on_bar(self, ctx: Context):
         p, df, i = self.p, ctx.df, ctx.i
         sess = int(df.at[i, "session"])
@@ -152,7 +195,8 @@ class DoubleRedBlack(Strategy):
             if order is not None and order.side != ctx.pos.side:  # 未侵入的對立訊號 → 平倉反手（p.56）
                 self._last_signal[sess] = (order.side, float(df.at[i, "close"]))
                 return [order]
-            ex = {"ladder": lambda: ladder_exit(ctx, p.profit_target),
+            ex = {"retracement": lambda: self._retracement_exit(ctx),
+                  "ladder": lambda: ladder_exit(ctx, p.profit_target),
                   "ma": lambda: ma_exit(ctx, "ma", p.profit_target),
                   "sar": lambda: sar_exit(ctx, p.profit_target),
                   "none": lambda: None}[p.exit_mode]()

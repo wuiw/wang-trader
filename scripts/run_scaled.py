@@ -139,7 +139,12 @@ def build_segments(df: pd.DataFrame, warmup_days: int) -> list[dict]:
 def one(args) -> tuple[dict, pd.DataFrame | None]:
     name, tf, cost, warmup_days, force_scale = args
     cls = strategy_classes()[name]
-    ref = REF_PRICE["q2"] if name.startswith("q2") else REF_PRICE["q3"]
+    if name.startswith("q2"):
+        ref = REF_PRICE["q2"]
+    elif name.startswith("gq"):
+        ref = REF_PRICE["gq"]
+    else:
+        ref = REF_PRICE["q3"]
     df = pd.read_parquet(DATA / f"tx_day_{tf}min.parquet")
     t0 = time.time()
     wd = WARMUP_OVERRIDE_DEFAULT.get(name, warmup_days)

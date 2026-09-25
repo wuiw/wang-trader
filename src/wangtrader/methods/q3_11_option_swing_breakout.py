@@ -16,7 +16,11 @@
        max_pullback_bars；違反任一者 → 取消本段觀察（C5），須等價格再次向上穿越MA才重新追蹤
        （p.249「取消觀察，重新等待突破均線」）。
     C6 K線收盤重新突破峰位水平線 → 買進CALL訊號；訊號後同段行情繼續追蹤下一個峰位（p.249
-       「D點突破C高…如果在C沒有進場，最慢在D補進場」）。
+       「D點突破C高…如果在C沒有進場，最慢在D補進場」）。訊號K線本身收盤須已站上MA100（真正完成
+       突破均線的步驟）：若某根K線收盤突破峰位水平線但當下仍在MA100之下，不算完成步驟的買進
+       訊號，須等到真正收盤站上均線的那一根才算數，即使該根同時也創了更高的峰位亦然（p.256，
+       圖11-8：B收盤突破A峰位但仍在MA100下方，不算買訊；隔天C才收盤站上均線並突破峰位，才形成
+       正式買進訊號）。峰位／候選峰值本身照舊更新，不因此中斷追蹤。
   買進PUT：對稱鏡像（C1'–C6'）。
   兩側各自獨立追蹤：持有 CALL 腿時價格若收盤跌破MA，亦同時開始追蹤 PUT 腿（p.260-261「對開」：
   買進賣權之後又出現買進買權訊號，兩邊訊號都成立）。核心引擎為單一部位，反向訊號會反手平掉既有
@@ -25,16 +29,24 @@
   的CALL／PUT，履約價以 strike_step（預設100，書中範例 9663→9900 CALL、10845→10600 PUT）推算，
   記在 meta（strike）。
 停損（p.260–261）：選擇權買方不另設停損，最大風險為已付權利金（stop=None）。
-出場（exit_mode，p.258–260，四法並列，書中未定優先序）：
+出場（exit_mode，p.257–260）：書中原文（p.257）明列四種可選停利機制（並列，未定優先序）：
   arm_at_strike=True（預設）：標的價格觸及所買選擇權履約價、使價外部位轉為價平之後，才啟動停利
   （p.258「抵達10600，使得原先的價外二檔賣權變成價平，此時啟動突破MA10做為移動停利」；p.259
   「抵達9900…接著若啟動跌破MA10做為停利」；p.252「使得買權進入價內階段，則準備獲利出場」）。
   未觸及履約價前不出場（書中持有到結算，權利金即損失上限；本模組無結算日，持有至反向訊號反手或
   資料結束）。
-  "ma10"：以 MA(ma10_period) 移動停利，多單收盤跌破／空單收盤突破即出場（p.258-259）。
-  "retrace"：創新高（CALL）/新低（PUT）後回落/反彈達 retrace_points 停利（p.258-259）。
-  "prev_day"：收盤跌破（CALL）/突破（PUT）前一交易日低／高點停利（沿用 core.bars 的 prev_high/prev_low）。
-  "hold"：不主動出場（近似留倉至結算，本模組無結算日資訊，以「持有至資料結束」近似）。
+  "ma10"：機制1，以 MA(ma10_period) 移動停利，多單收盤跌破／空單收盤突破即出場（p.257-259）。
+  "retrace"：機制2，創新高（CALL）/新低（PUT）後回落/反彈達 retrace_points 停利（p.257-259，書中
+  亦提及可用150點，見 retrace_points 可調）。
+  "prev_day"：機制3，收盤跌破（CALL）/突破（PUT）前一交易日低／高點停利（沿用 core.bars 的
+  prev_high/prev_low）。
+  "fixed_pct"：機制4，固定比例平倉（p.257「賺50%或100%出場」，未定量化公式）。本模組不模擬選擇權
+  權利金，以「觸及履約價（轉價平）後，標的價格再等距前進 arm_target(履約價距離) 的
+  fixed_profit_ratio 倍」近似「賺 fixed_profit_ratio 成」（例如 ratio=1.0 近似「再走一個價平距離
+  ≈翻倍」、0.5 近似「賺50%」），為近似量化，非原文公式，見回報。
+  "hold"：不主動出場，近似「留倉至結算日平倉」——書中原文更正後這不是四機制之一，而是圖11-11
+  案例額外示範的持有方式（p.259-260，該例中恰好獲最大利潤，但非公認最佳解）；本模組無結算日
+  資訊，以「持有至反向訊號反手或資料結束」近似。
 
 週期：不限（書中原文以30分鐘K線為例，本模組以 ma_period/rsi_period 等參數表示，不寫死週期）。
 """
@@ -63,8 +75,9 @@ class Params:
     max_pullback_bars: int = 20  # C5：書中以「天」描述（約1天內佳、逾10天過久），本參數為根數近似值，
     #                              需依實際週期調整
     ma10_period: int = 10  # p.258，MA10移動停利
-    retrace_points: float = 100.0  # p.258-259，創高低反彈折返停利
-    exit_mode: str = "ma10"  # "ma10" | "retrace" | "prev_day" | "hold"，書中四法並列未定優先序
+    retrace_points: float = 100.0  # p.258-259，創高低反彈折返停利（書中亦提及可用150點）
+    fixed_profit_ratio: float = 1.0  # p.257，機制4「賺50%或100%出場」的近似倍數（1.0≈100%、0.5≈50%）
+    exit_mode: str = "ma10"  # "ma10" | "retrace" | "prev_day" | "fixed_pct" | "hold"，書中未定優先序
     arm_at_strike: bool = True  # 觸及履約價（價外轉價平）後才啟動停利（p.252, 258-259）
     strike_step: float = 100.0  # 履約價間距（書中範例皆為 100 點）
     otm_steps: int = 2  # 價外檔數（p.245, 258-259「價外二檔」；0＝價平）
@@ -132,7 +145,7 @@ class OptionSwingBreakout(Strategy):
         if (i - st.pullback_start) > p.max_pullback_bars:  # C5：拉回拖太久
             self._call = None
             return None
-        if b["close"] > st.confirmed:  # C6：收盤突破峰位水平線
+        if b["close"] > st.confirmed and b["close"] > b["ma"]:  # C6 + 訊號K須收在MA100同側（p.256）
             line = st.confirmed
             self._call = _LegState(origin=st.origin, cand=max(line, float(b["high"])), cand_i=i)
             entry = float(b["close"])
@@ -163,7 +176,7 @@ class OptionSwingBreakout(Strategy):
         if (i - st.pullback_start) > p.max_pullback_bars:  # C5'
             self._put = None
             return None
-        if b["close"] < st.confirmed:  # C6'：收盤跌破谷位水平線
+        if b["close"] < st.confirmed and b["close"] < b["ma"]:  # C6' + 訊號K須收在MA100同側（p.256，鏡像）
             line = st.confirmed
             self._put = _LegState(origin=st.origin, cand=min(line, float(b["low"])), cand_i=i)
             entry = float(b["close"])
@@ -196,6 +209,16 @@ class OptionSwingBreakout(Strategy):
                 return Order.exit("跌破前一天低點停利")
             if pos.side == Side.SHORT and not pd.isna(b["prev_high"]) and b["close"] > b["prev_high"]:
                 return Order.exit("突破前一天高點停利")
+            return None
+        if p.exit_mode == "fixed_pct":
+            # 機制4（p.257）：固定比例平倉。書中僅舉例「賺50%或100%出場」，未給量化公式；本模組不
+            # 模擬權利金，以「觸及履約價（target）後再前進 target*fixed_profit_ratio 點」近似（見
+            # docstring）。target<=0（例如 arm_at_strike=False）時無基準可用，不啟動。
+            if target <= 0:
+                return None
+            if pos.max_profit() - target >= target * p.fixed_profit_ratio:
+                pct = int(round(p.fixed_profit_ratio * 100))
+                return Order.exit(f"固定比例停利({pct}%)")
             return None
         return None
 

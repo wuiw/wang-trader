@@ -15,13 +15,18 @@
     RSI 上緣不得超過 80、訊號為 RSI 再度向上突破 50。
   D4 A、B 兩端點時間距離（根數）須 <= max_gap_bars（預設 30，p.227）；B 形成後等待 RSI 穿越 50 的
      時間不計入（書中限制的是兩端點距離）。
+  D5 盤中高低點幅度須超過 swing_points（預設 30）點才成立；例外：當日開盤跳空幅度已超過
+     swing_points，不受此限（p.224）。此處衡量對象為 A、B 兩端點本身的價格幅度
+     （即「從某一端點漲（跌）到另一端點的幅度」，p.224）。
 
 進場（p.220）：訊號成立當根即以收盤價進場，無需等待拉回。
 
-停損（p.226）：書中取「0 位法」與「端點極端值法」中距離較近者，且原則上 <= stop_points（預設 20）；
-  「0 位法」原文僅提及概念、未展開換算方式，本模組**未實作**（見模組尾端待確認事項），
-  僅實作「端點極端值法」＝以 B 點價位為停損；若其距離超過 stop_points，改以「訊號價 ± stop_points」
-  的點數法近似取代未展開的 0 位法（推論，非原文明文規定）。
+停損（p.225–226，★已依補拍頁修正）：取「0 位法」（第一章均線訊號個位數停損公式，q2-01 p.13-14）
+  與「端點極端值法」（B 點價位）兩者：
+    若兩者距進場價的點數都 <= stop_points（預設 20），取點數**較大（距離較遠）者**
+    （多單取兩者中較低價、空單取較高價）；
+    若兩者中較大者已超過 stop_points，改取點數**較小（距離較近）者**（p.225，圖6-44取8260；
+    p.226 圖6-45取端點法8985）。
 
 出場：書中未見固定停利規則，僅靠停損與收盤（intraday）強制平倉。
 
@@ -29,6 +34,7 @@
   F1 A、B 時間距離 > max_gap_bars → 忽略（p.227）
   F2 A、B 之間 RSI 跌破 os_breach=20（空方）／突破 ob_breach=80（多方）→ 忽略（p.220，推論延伸 D3）
   F3 B 對應 RSI 仍 >= 90（空方）／<= 10（多方）→ 視為新的 A，重新計算（p.220，C4 的自然延伸）
+  F5/D5 A、B 兩端點幅度 <= swing_points 且當日開盤跳空未超過 swing_points → 忽略（p.224）
 
 週期：不限。所有門檻以點數／根數表示。
 """
@@ -58,6 +64,7 @@ class Params:
     pivot_level: int = 2  # 層級 2 轉折點（p.220）
     max_gap_bars: int = 30  # 兩端點時間距離上限，書中「30 根 K 線」（p.227）
     stop_points: float = 20.0  # 停損點數上限（p.226）
+    swing_points: float = 30.0  # D5：A、B 兩端點幅度下限，開盤跳空超過此點數則不受限（p.224）
 
 
 @dataclass
@@ -78,6 +85,34 @@ class _Track:
         self.a_i = self.pivot_i = self.b_i = -1
         self.a_price = self.pivot_price = self.b_price = 0.0
         self.crossed_mid = False
+
+
+def _digit_stop(close: float, side: Side) -> float:
+    """0 位停損法（p.225，即第一章均線訊號停損公式，q2-01 p.13-14）：
+    多＝收盤−(10+個位數)；空＝收盤+(20−個位數)，個位數0時空方為20點。"""
+    ones = int(round(abs(close))) % 10
+    return close - (10 + ones) if side == Side.LONG else close + (20 - ones)
+
+
+def _passes_swing_filter(df: pd.DataFrame, i: int, a_price: float, b_price: float, swing_points: float) -> bool:
+    """F5/D5（p.224）：A、B 兩端點幅度須超過 swing_points；
+    當日開盤跳空幅度已超過 swing_points 時不受此限。"""
+    swing = abs(a_price - b_price)
+    prev_c = df.at[i, "prev_close"]
+    gap = abs(df.at[i, "sess_open"] - prev_c) if pd.notna(prev_c) else 0.0
+    return swing > swing_points or gap > swing_points
+
+
+def _choose_stop(entry: float, b_price: float, side: Side, stop_points: float) -> float:
+    """p.225–226（★已依補拍頁修正）：比較「0位法」與「端點極端值法」，
+    兩者距進場價都在 stop_points 以內時取點數較大（距離較遠）者，
+    若較大者已超過 stop_points 則改取點數較小（距離較近）者。"""
+    digit = _digit_stop(entry, side)
+    dist_b, dist_d = abs(entry - b_price), abs(entry - digit)
+    farther, nearer = (b_price, digit) if dist_b >= dist_d else (digit, b_price)
+    if max(dist_b, dist_d) <= stop_points:
+        return farther
+    return nearer
 
 
 class RsiDivergence(Strategy):
@@ -184,9 +219,10 @@ class RsiDivergence(Strategy):
             return None
         side = Side.SHORT if hit_short is not None else Side.LONG
         a_i, a_price, b_i, b_price = hit
+        # F5/D5：A、B 兩端點幅度須超過 swing_points，開盤跳空已超過 swing_points 則不受限（p.224）
+        if not _passes_swing_filter(df, i, a_price, b_price, p.swing_points):
+            return None
         entry = float(df.at[i, "close"])
-        stop = b_price
-        if abs(entry - stop) > p.stop_points:
-            stop = entry + p.stop_points if side == Side.SHORT else entry - p.stop_points
+        stop = _choose_stop(entry, b_price, side, p.stop_points)
         name = "RSI背離向下" if side == Side.SHORT else "RSI背離向上"
         return [Order.enter(side, stop=stop, reason=name, a_i=a_i, a_price=a_price, b_i=b_i, b_price=b_price)]

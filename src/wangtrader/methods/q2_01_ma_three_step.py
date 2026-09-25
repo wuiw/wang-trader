@@ -19,21 +19,29 @@
   「隔日尾盤訊號延續」：訊號因收盤前時間濾網被忽略，若隔日開盤第一根與昨日最後一根有重疊（無真空缺口），
   沿用昨日訊號方向與停損，於隔日開盤第一根進場（p.23，簡化為以該根收盤價成交，因引擎進場一律採收盤價）。
 
-停損（p.13）：`收盤 − (10 + 收盤個位數)`（多）；整數價位（個位數0）固定 20 點。
-  空方鏡像：`收盤 + (10 + 個位數)`（（推論）書中僅明確給出多方公式，p.13）。
+停損（p.13-14）：買進 `收盤 − (10 + 收盤個位數)`；放空 `收盤 + (20 − 收盤個位數)`
+  （p.14 原文明確列出，非鏡像推論；例：7665→7680、7701→7720、8636→8650）。個位數0時兩方向皆固定 20 點。
 
-出場（p.30-31, 38-39）：達初始獲利目標 20 點後，
-  固定點數移動停利（exit_mode="ladder"）：K線「收盤創新高（高於持倉以來最高收盤）且最高點也創新高」才把停利線
-  移到「新高 − trail_points」（空方鏡像）；觸及＝盤中價格跌破停利線達 trail_breach_points（書中「超過1點」）即出場
-  （引擎的主動出場一律以當根收盤成交，與其他方法一致；書中為盤中觸價，屬簡化）。
-  或 SAR 移動停利（exit_mode="sar"，沿用 core.exits.sar_exit，機制與書中 6.3 節相同）。
-  反向三步驟訊號成立 → 立即平倉反手（p.20-21，由引擎的反手機制處理）。
+出場（p.28-51, 6.1-6.7）：反向三步驟訊號成立 → 立即平倉反手（p.20-21，由引擎的反手機制處理）；
+  求不賠（breakeven_arm_points，預設15點，6.7）：獲利曾達此點數後跌破/漲破（回到）進場價 → 立即出場，
+  優先於下列所有 exit_mode（書中明言不必等移動停利或停損觸發，p.32-33）。
+  其餘擇一（exit_mode）：
+    "ladder"（6.2，預設）：達初始獲利目標 profit_target(20) 後，K線「收盤創新高且最高點也創新高」（空方鏡像）
+      才把停利線移到「新高 − trail_points」；觸及＝盤中價格跌破停利線達 trail_breach_points（書中「超過1點」）
+      即出場（引擎的主動出場一律以當根收盤成交，書中為盤中觸價，屬簡化）。
+    "sar"（6.3，沿用 core.exits.sar_exit，機制同書中）。
+    "ma"（6.4）：達 profit_target 後先用 MA(ma_period) 為停利線；獲利達 ma_fast_arm_profit(50) 點後
+      改用參數較小的 MA(ma_fast_period=10)；收盤突破/跌破所用均線即出場。
+    "range"（6.5）：達 profit_target 後取最近 range_bars(15) 根K線高/低點供隔一根K線作停利參考，
+      逐根重新計算；不可比原始停損更不利；觸及＝影線超過停利點 range_breach_points(1) 點即出場。
+    "fixed"（6.6）：窄幅盤整適用，達 fixed_exit_points(10) 點固定獲利即出場，不用移動停利。
+  時間停損（time_stop_bars，預設關閉，p.22 書中為60根／約1小時）：持倉逾此根數仍無明顯獲利，出場。
 
 過濾（p.18-19, 23-25）：
   F1 訊號K線漲跌幅 ≥ big_bar_points(15) → 忽略。
   F2 訊號收盤距「本段突破均線那根K線的收盤」> max_dev_from_break(60) → 忽略（p.18）；同一段（仍在均線同側）
      出現第二組三步驟時，起漲點仍是最初突破均線的位置，不是前一個訊號。
-  F3 訊號收盤距平盤 > max_dev_from_prev_close(預設60，p.18；p.19另舉90點例，兩數並陳，見待確認事項) → 忽略。
+  F3 訊號收盤距平盤 > max_dev_from_prev_close(60, p.18) → 忽略（p.19圖1-17之90點僅為示範數值，非另訂門檻，已查原文確認）。
   F4 訊號K線漲跌幅 < min_bar_points(2) → 忽略。
   F5 no_entry_after：晚於此時刻不進場（預設 None 關閉，書中為收盤前30分鐘，p.23）。
 
@@ -48,7 +56,7 @@ from datetime import time
 import pandas as pd
 
 from wangtrader.core import Context, Order, Side, Strategy
-from wangtrader.core.exits import sar_exit
+from wangtrader.core.exits import retrace_exit, sar_exit
 from wangtrader.core.indicators import sar, sma
 
 METHOD_ID = "q2-01"
@@ -134,9 +142,15 @@ def _group_by_confirm(pivots: list[_Pivot]) -> dict[int, list[_Pivot]]:
 
 
 def _digit_stop(side: Side, close_price: float, min_offset: float, integer_points: float) -> float:
-    """個位數停損公式（p.13）：停損 = 收盤 -/+ (10 + 個位數)；整數價位固定 integer_points 點。"""
+    """個位數停損公式（p.13-14）：多＝收盤−(10+個位數)；空＝收盤+(20−個位數)（非鏡像，p.14原文明確列出）；
+    整數價位（個位數0）兩方向皆固定 integer_points 點。"""
     digit = int(round(close_price)) % 10
-    pts = integer_points if digit == 0 else min_offset + digit
+    if digit == 0:
+        pts = integer_points
+    elif side == Side.LONG:
+        pts = min_offset + digit
+    else:
+        pts = integer_points - digit
     return close_price - pts if side == Side.LONG else close_price + pts
 
 
@@ -152,10 +166,16 @@ class Params:
     min_bar_points: float = 2.0  # F4：訊號K線漲跌幅下限（p.24-25）
     no_entry_after: time | None = None  # F5：晚於此時刻不進場（書中收盤前30分鐘，p.23），預設關閉
     carry_over_to_next_open: bool = True  # 隔日尾盤訊號延續進場（p.23）
-    exit_mode: str = "ladder"  # "ladder" | "sar" | "none"
+    exit_mode: str = "ladder"  # "ladder" | "sar" | "ma" | "range" | "fixed" | "none"（p.28-51, 6.1-6.6）
     profit_target: float = 20.0  # 初始獲利目標（p.30, 38）
-    trail_points: float = 20.0  # 固定點數移動停利的回檔點數（p.30-31）
-    trail_breach_points: float = 1.0  # 停利觸及＝盤中跌破停利線達此點數（p.31「超過1點」；整數價位下取≥1點的讀法）
+    trail_points: float = 20.0  # ladder：固定點數移動停利的回檔點數（p.30-31）
+    trail_breach_points: float = 1.0  # ladder：觸及＝盤中跌破停利線達此點數（p.31「超過1點」）
+    ma_fast_period: int = 10  # ma：獲利擴大後改用的較小均線週期（p.42，MA10）
+    ma_fast_arm_profit: float = 50.0  # ma：獲利達此點數後由 MA(ma_period) 切換為 MA(ma_fast_period)（p.42）
+    range_bars: int = 15  # range：區間高低點停利所取的K線根數（p.46-49，預設15）
+    range_breach_points: float = 1.0  # range：觸及＝影線超過停利點此點數（p.47「超過1點」）
+    fixed_exit_points: float = 10.0  # fixed：窄幅盤整固定點數出場（p.28，書中舉例10點）
+    breakeven_arm_points: float | None = 15.0  # 求不賠：獲利曾達此點數後回到進場價即出場，優先於 exit_mode（p.32-33, 6.7）
     time_stop_bars: int | None = None  # 持倉逾此根數無明顯獲利，考慮離場（p.22）；門檻未量化，預設關閉
     time_stop_min_profit: float = 0.0  # 搭配 time_stop_bars：獲利需 < 此值才觸發
 
@@ -173,6 +193,7 @@ class MAThreeStep(Strategy):
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
         df["ma"] = sma(df["close"], self.p.ma_period)
+        df["ma_fast"] = sma(df["close"], self.p.ma_fast_period)
         s = sar(df)
         df["sar"], df["sar_trend"] = s["sar"], s["trend"]
         peaks, troughs = _pivots_by_session(df, self.p.pivot_level)
@@ -282,6 +303,52 @@ class MAThreeStep(Strategy):
             return Order.exit("固定點數移動停利")
         return None
 
+    def _ma_tier_exit(self, ctx: Context) -> Order | None:
+        """均線移動停利（p.42-45，6.4）：達獲利目標後先用 MA(ma_period) 為停利線；
+        獲利達 ma_fast_arm_profit 點後改用較小參數 MA(ma_fast_period)；收盤突破/跌破所用均線即出場。"""
+        pos, p = ctx.pos, self.p
+        if pos is None or ctx.i <= pos.entry_i or pos.max_profit() < p.profit_target:
+            return None
+        col = "ma_fast" if pos.max_profit() >= p.ma_fast_arm_profit else "ma"
+        b = ctx.bar()
+        ma = b[col]
+        if ma != ma:  # NaN
+            return None
+        if pos.side == Side.LONG and b["close"] < ma:
+            return Order.exit("均線停利")
+        if pos.side == Side.SHORT and b["close"] > ma:
+            return Order.exit("均線停利")
+        return None
+
+    def _range_exit(self, ctx: Context) -> Order | None:
+        """區間高低點停利（p.46-51，6.5）：達獲利目標後，取最近 range_bars 根K線（不含本根）的高/低點
+        供本根作停利參考，逐根重新計算；不可比原始停損更不利；觸及＝影線超過停利點 range_breach_points 點。"""
+        pos, p, df, i = ctx.pos, self.p, ctx.df, ctx.i
+        if pos is None or ctx.i <= pos.entry_i or pos.max_profit() < p.profit_target:
+            return None
+        long = pos.side == Side.LONG
+        lo_i = max(pos.entry_i, i - p.range_bars)
+        window = df.iloc[lo_i:i]
+        if window.empty:
+            return None
+        lvl = float(window["low"].min()) if long else float(window["high"].max())
+        if pos.stop is not None:  # 不可比原始停損更不利（p.48）
+            lvl = max(lvl, pos.stop) if long else min(lvl, pos.stop)
+        b = df.iloc[i]
+        trigger = lvl - p.range_breach_points if long else lvl + p.range_breach_points
+        if (b["low"] <= trigger) if long else (b["high"] >= trigger):
+            return Order.exit("區間高低點停利")
+        return None
+
+    def _fixed_points_exit(self, ctx: Context) -> Order | None:
+        """固定點數出場（p.28，6.6）：窄幅盤整適用，達 fixed_exit_points 點即出場，不用移動停利。"""
+        pos, p = ctx.pos, self.p
+        if pos is None or ctx.i <= pos.entry_i:
+            return None
+        if pos.profit(ctx.bar()["close"]) >= p.fixed_exit_points:
+            return Order.exit("固定點數出場")
+        return None
+
     def _time_stop(self, ctx: Context) -> Order | None:
         pos, p = ctx.pos, self.p
         if pos is None or p.time_stop_bars is None:
@@ -322,10 +389,17 @@ class MAThreeStep(Strategy):
         # 出場（若持倉）
         if ctx.pos is not None:
             ex = None
-            if p.exit_mode == "ladder":
-                ex = self._ladder_exit(ctx)
-            elif p.exit_mode == "sar":
-                ex = sar_exit(ctx, p.profit_target)
+            if p.breakeven_arm_points is not None:  # 求不賠，優先於下列所有出場方式（p.32-33, 6.7）
+                ex = retrace_exit(ctx, p.breakeven_arm_points, 0.0)
+            if ex is None:
+                ex = {
+                    "ladder": self._ladder_exit,
+                    "sar": lambda c: sar_exit(c, p.profit_target),
+                    "ma": self._ma_tier_exit,
+                    "range": self._range_exit,
+                    "fixed": self._fixed_points_exit,
+                    "none": lambda c: None,
+                }[p.exit_mode](ctx)
             if ex is None:
                 ex = self._time_stop(ctx)
             if ex is not None:

@@ -23,7 +23,13 @@ PVT 通道／趨勢階梯（p.95-98）：本模組自行實作（不與其他方
   谷(2)確認當根若收盤已突破峰(1)，當根即成立（p.16-17 同作者「不需等右側確認」的原則）。
   (0)須為結構最低（高）點：(1)尚未形成前若出現更低（高）的轉折點，(0)移到該點。
 
-進場（p.98-100）：訊號K線收盤進場。
+進場（p.98-100, 105-107）：訊號K線收盤進場。
+  隔日開盤延續進場（p.105-106）：訊號因 F4 時間濾網被忽略時，若本交易日開盤第一根K線未跌破/突破
+  該訊號的停損位置，沿用前一日訊號於本根收盤進場、停損不變；若已跌破/突破則作廢，須重新尋找新結構。
+  同方向重新進場（p.106）：同一段控盤（PVT階梯未被突破/跌破）內，前一組結構出場後，狀態機以其
+  (2)點接續作為新的(0)點繼續尋找下一組N型/倒N型，可再次進場（沿用既有狀態機延續機制，無需特別分支）。
+  起始點距PVT過遠的例外放行（p.107）：F2 判斷(0)距階梯 > max_dev_from_ladder 時，若確認(3)當下(2)距
+  當時階梯已在門檻內，訊號仍視為有效。
 停損（p.100）：與均線三步驟策略相同的個位數公式（本模組自行複製，不 import q2-01），
   可選改採 PVT 階梯（兩者皆在 stop_max_risk 點內時取較優者，p.108）。
 出場（p.108, 118-122）：
@@ -33,9 +39,10 @@ PVT 通道／趨勢階梯（p.95-98）：本模組自行實作（不與其他方
   反向訊號立即平倉反手（p.111，由引擎的反手機制處理）。
 過濾（p.104-105, 110）：
   F1 (0)到(3)距離 > max_pattern_points(30) → 忽略。
-  F2 (0)距階梯 > max_dev_from_ladder(20) → 不列入計數。
+  F2 (0)距階梯 > max_dev_from_ladder(20) → 不列入計數；例外：確認(3)時(2)距當時階梯 ≤ 門檻仍可視為有效（p.107）。
   F3 突破/跌破階梯後偏離 > max_drift_from_breakout(30) 或拖延 > max_bars_from_breakout(60) 根仍未成訊號 → 忽略。
-  F4 no_entry_after：晚於此時刻不進場（書中收盤前1小時，p.105；預設 None 關閉，時鐘規則）。
+  F4 no_entry_after：晚於此時刻不進場（書中收盤前1小時，p.105；預設 None 關閉，時鐘規則）；
+     被F4濾掉、其餘條件皆通過的訊號可沿用至隔日開盤延續進場（見「進場」節，carry_over_to_next_open）。
 
 不區隔週期：無任何 K 線週期常數；所有門檻皆為點數／根數參數。
 """
@@ -127,9 +134,15 @@ def _group_by_confirm(pivots: list[_Pivot]) -> dict[int, list[_Pivot]]:
 
 
 def _digit_stop(side: Side, close_price: float, min_offset: float, integer_points: float) -> float:
-    """個位數停損公式（與第一章均線策略相同，p.100；本模組自行複製）。"""
+    """個位數停損公式（與第一章均線策略相同，p.100；本模組自行複製）：
+    多＝收盤−(10+個位數)；空＝收盤+(20−個位數)（非鏡像，p.14原文明確列出）；整數價位固定 integer_points 點。"""
     digit = int(round(close_price)) % 10
-    pts = integer_points if digit == 0 else min_offset + digit
+    if digit == 0:
+        pts = integer_points
+    elif side == Side.LONG:
+        pts = min_offset + digit
+    else:
+        pts = integer_points - digit
     return close_price - pts if side == Side.LONG else close_price + pts
 
 
@@ -146,6 +159,7 @@ class Params:
     max_drift_from_breakout: float = 30.0  # F3：突破後偏離上限（p.110）
     max_bars_from_breakout: int = 60  # F3：突破後拖延根數上限（p.110）
     no_entry_after: time | None = None  # F4：書中收盤前1小時（p.105），預設關閉
+    carry_over_to_next_open: bool = True  # 隔日開盤延續進場（p.105-106）：F4濾掉的訊號沿用隔日開盤第一根
     giveback_points: float = 15.0  # 折返停利點數（書中舉例15或20點，p.108/118）
     ladder_exit: bool = True  # 已獲利部位可用 PVT 階梯停利（p.108, 6.2）
 
@@ -158,6 +172,7 @@ class PVTNType(Strategy):
         self._peaks_by_confirm: dict[int, list[_Pivot]] = {}
         self._troughs_by_confirm: dict[int, list[_Pivot]] = {}
         self._st: dict = self._fresh()
+        self._pending_carry: dict | None = None  # {"side","stop"}，供隔日開盤延續進場
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -165,6 +180,7 @@ class PVTNType(Strategy):
         self._peaks_by_confirm = _group_by_confirm(peaks)
         self._troughs_by_confirm = _group_by_confirm(troughs)
         self._st = self._fresh()
+        self._pending_carry = None
         return df
 
     # ---------- 狀態（階梯／控盤方向跨交易日延續，p.101） ----------
@@ -292,6 +308,17 @@ class PVTNType(Strategy):
         close = df.at[i, "close"]
         orders: list[Order] = []
 
+        # 隔日開盤延續進場（p.105-106）：前一日尾盤因F4被濾掉的訊號，若本交易日開盤第一根未跌破/突破
+        # 其停損位置，沿用該訊號於本根收盤進場，停損不變；已跌破/突破則作廢，訊號需重新產生。
+        if p.carry_over_to_next_open and self._pending_carry is not None and df.at[i, "bar_no"] == 0:
+            carry = self._pending_carry
+            self._pending_carry = None
+            c_side, c_stop = carry["side"], carry["stop"]
+            broken = (df.at[i, "low"] <= c_stop) if c_side == Side.LONG else (df.at[i, "high"] >= c_stop)
+            if not broken:
+                name = "PVT-N型買進(隔日延續)" if c_side == Side.LONG else "PVT倒N型放空(隔日延續)"
+                orders.append(Order.enter(c_side, stop=c_stop, reason=name))
+
         if ctx.pos is not None:
             ex = self._giveback_exit(ctx) or self._ladder_exit_order(ctx, st)
             if ex is not None:
@@ -334,7 +361,11 @@ class PVTNType(Strategy):
                 c1_price, c0 = hit
                 if self._passes_filters(df, i, c0, c1_price, st, Side.LONG):
                     stop = self._final_stop(Side.LONG, close, st)
-                    orders.append(Order.enter(Side.LONG, stop=stop, reason="PVT-N型買進"))
+                    if self._blocked_by_time_filter(df, i):  # F4：延後至隔日開盤延續（見上）
+                        if p.carry_over_to_next_open:
+                            self._pending_carry = {"side": Side.LONG, "stop": stop}
+                    else:
+                        orders.append(Order.enter(Side.LONG, stop=stop, reason="PVT-N型買進"))
                 self._reset_structure(st, "LONG", st["LONG"]["c2"])
         if st["regime"] == "bear":
             hit = self._step_structure("SHORT", st["SHORT"], lambda a, b: a < b, None, None, st["breakout_i"], df, i)
@@ -342,7 +373,11 @@ class PVTNType(Strategy):
                 c1_price, c0 = hit
                 if self._passes_filters(df, i, c0, c1_price, st, Side.SHORT):
                     stop = self._final_stop(Side.SHORT, close, st)
-                    orders.append(Order.enter(Side.SHORT, stop=stop, reason="PVT倒N型放空"))
+                    if self._blocked_by_time_filter(df, i):
+                        if p.carry_over_to_next_open:
+                            self._pending_carry = {"side": Side.SHORT, "stop": stop}
+                    else:
+                        orders.append(Order.enter(Side.SHORT, stop=stop, reason="PVT倒N型放空"))
                 self._reset_structure(st, "SHORT", st["SHORT"]["c2"])
 
         return orders or None
@@ -360,17 +395,25 @@ class PVTNType(Strategy):
         return stop
 
     def _passes_filters(self, df: pd.DataFrame, i: int, c0: _Pivot, c1_price: float, st: dict, side: Side) -> bool:
+        """F1-F3（F4 時間濾網另在 on_bar 處理，因通過與否會影響是否走隔日延續進場）。"""
         p = self.p
         close = df.at[i, "close"]
         if abs(close - c0.price) > p.max_pattern_points:  # F1
             return False
         ladder = st["bull_ladder"] if side == Side.LONG else st["bear_ladder"]
         if ladder is not None and abs(c0.price - ladder) > p.max_dev_from_ladder:  # F2
-            return False
+            # 例外（p.107）：確認(3)時，(2)距當時階梯已在門檻內，即便(0)當初超過門檻，訊號仍視為有效
+            c2 = st["LONG" if side == Side.LONG else "SHORT"]["c2"]
+            if c2 is None or abs(c2.price - ladder) > p.max_dev_from_ladder:
+                return False
         if abs(close - st["breakout_price"]) > p.max_drift_from_breakout:  # F3 偏離
             return False
         if i - st["breakout_i"] > p.max_bars_from_breakout:  # F3 拖延
             return False
-        if p.no_entry_after is not None and hasattr(df.at[i, "time"], "time") and df.at[i, "time"].time() > p.no_entry_after:  # F4
-            return False
         return True
+
+    def _blocked_by_time_filter(self, df: pd.DataFrame, i: int) -> bool:
+        """F4：晚於 no_entry_after 不進場（書中收盤前1小時，p.105）。"""
+        p = self.p
+        t = df.at[i, "time"]
+        return p.no_entry_after is not None and hasattr(t, "time") and t.time() > p.no_entry_after

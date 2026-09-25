@@ -25,7 +25,10 @@ K 線收盤根數多寡判定多空優劣，再結合 N 型／倒 N 型三步驟
 進場（p.142–143）：訊號K線收盤突破/跌破(1)時，立即以收盤進場（書中未提及本方法有
   補進場機制，故不同於 q2-04-01）。
 停損（p.147–148, 150）：設於構成訊號前的拉回層級2谷點(2)（多方）或反彈層級2峰點(2)
-  （空方）——注意與 q2-04-01 不同，本方法停損＝結構(2)點而非0點；書中未給統一點數上限。
+  （空方）——注意與 q2-04-01 不同，本方法停損＝結構(2)點而非0點；一般情況下點數控制在
+  stop_points_cap（預設20）以內，超過則改用「進場價 ± stop_points_cap」。
+  重大事件（如公投、選舉開票，p.152–153）發生當下波動放大，允許停損距離超過20點，
+  以 major_event_stop 開關控制（預設 False，即沿用一般20點上限）。
 出場：折返停利（推論延用 q2-04-01 同一機制，書中本節未重新定義，僅圖例點數一致，
   見模組末待確認事項）：最大獲利達 retrace_points（書中15點）後啟動，自最有利價回落達
   retrace_points 即出場（p.150「超過 15 點折返，多單觸及停利出場」）。
@@ -59,6 +62,8 @@ class Params:
     level: int = 2  # 峰谷點層級（p.143, p.151，層級2轉折點）
     min_side_bars: int = 3  # C1/C1'：突破前弱側須有的最少收盤根數（p.141, p.143）
     retrace_points: float = 15.0  # 折返停利（推論延用 q2-04-01 同一機制，書中未重新定義，見docstring）
+    stop_points_cap: float = 20.0  # 停損點數上限，一般情況超過則改用「進場價 ± 此點數」
+    major_event_stop: bool = False  # 重大事件（公投、選舉開票等）停損可超過20點，預設關閉（p.152–153）
 
 
 class FourPillars(Strategy):
@@ -219,6 +224,10 @@ class FourPillars(Strategy):
         search = self._levels[lv_name]["search"][side]
         stop = search["trough"].price
         self._levels[lv_name]["search"][side] = None  # 完成一次訊號，重新等待下一次翻邊
+        entry_price = float(df.at[i, "close"])
+        # 一般情況下點數控制在 stop_points_cap 以內；重大事件（p.152–153）允許放寬，不受此上限
+        if not p.major_event_stop and abs(entry_price - stop) > p.stop_points_cap:
+            stop = entry_price - p.stop_points_cap if side == Side.LONG else entry_price + p.stop_points_cap
         name = f"四柱突破({lv_name})" if side == Side.LONG else f"四柱跌破({lv_name})"
         orders.append(Order.enter(side, stop=stop, reason=name, level=lv_name, zero=zero_price, peak=peak_price))
         return orders

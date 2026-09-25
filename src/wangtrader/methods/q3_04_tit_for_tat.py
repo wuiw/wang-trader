@@ -12,20 +12,25 @@
     （p.84「其中一根 K 線一定是最高 K 線」；壘頂／壘底＝同高／同低，p.84）。
   極端位置前提：p.84「以牙還牙的訊號必然出現在當下盤中極端位置…極端位置的定義也都和前面所有
     極端位置訊號一樣」→ 套用 30/40 點極端位置判定（is_extreme_position），require_extreme 開關控制。
-進場（p.84）：訊號K（B）收盤確認後立即以收盤價進場，方向與B同向（即與A相反）。
-  書中未提及需等拉回或有其他補進場條件。
-停損（推論，本章未明文）：依本書極端位置訊號的一貫作法（p.21, 23, 50, 113），設在 A 的極端點
-  （穿越 stop_tick 即出場），但距進場價最多 stop_points（預設 20 點）。設 stop_points=None 則不設停損。
+進場（p.84, 87）：訊號K（B）收盤確認後，若距A的極端點 ≤ stop_points 立即以收盤價進場（方向與B
+  同向，即與A相反）；距離較大（>20點，圖4-4）則等拉回/反彈至距離縮小到 stop_points 以內再補進場
+  （限價，max_wait 根內未成交即失效）。
+停損（p.87, 90-91）：設在 A 的極端點（穿越 stop_tick 即出場），但距進場價最多 stop_points
+  （預設 20 點）。設 stop_points=None 則不設停損。
 過濾：
   F1 漲跌點差距 > tolerance_points → 即使壘頂/壘底外觀相同，仍不成立（屬訊號定義本身，p.84）
   F2 母K未同時符合最高/最低點與收盤最高/最低 → 不是合法母K線（屬訊號定義本身，p.93）
   F3 同一天同一類型訊號第一次已停損 → 第二次出現忽略不進場（p.92）
   F4 必須在極端位置：盤中震幅 ≥ extreme_range 或距平盤 ≥ extreme_from_prev_close（p.84）
-出場：書中未提供本訊號出場規則（範例提及「連五紅遇首黑平倉」屬另一章 q3-06，獨立模組
-  不得引用，故不實作）；exit_mode 提供 "ladder"/"ma"/"sar"/"none"（預設 none）作為推論性
-  技術選項，未經原文證實。
-反手：書中僅於「作者提醒」段落提及可能反手，但未給出明確觸發條件（p.88-89），
-  屬提醒而非規則，本模組不實作（避免原文沒有的規則自行發明）。
+出場（p.90-91，更正舊版「書中未提供本訊號出場規則」的說法）：
+  折返平倉：獲利曾達 retrace_trigger（15點）後又折返回進場價（含）以下 → 立刻撤單平倉（沿用
+  core.exits.retrace_exit，trigger=15、keep=0）。
+反手（p.91）：若持倉期間從未達到 retrace_trigger 的獲利門檻，隨後觸及停損，且停損當根K線
+  「收盤」確認穿越A的極端點（原空單：收盤突破A高點；原多單：收盤跌破A低點），則停損出場後
+  立即反手，並以反手收盤價為基準設 stop_points 點停損（reversal_enabled 開關，預設開啟，
+  book 未提示台指不宜使用，故不像 q3-02 預設關閉）。
+  exit_mode 另提供 "ladder"/"ma"/"sar"/"none"（預設 none）作為推論性技術選項，未經原文證實，
+  與折返平倉可疊加使用。
 
 週期：不限。所有門檻以點數表示。
 """
@@ -38,7 +43,7 @@ import pandas as pd
 
 from wangtrader.core import Context, Order, Side, Strategy
 from wangtrader.core.bars import is_extreme_position
-from wangtrader.core.exits import ladder_exit, ma_exit, sar_exit
+from wangtrader.core.exits import ladder_exit, ma_exit, retrace_exit, sar_exit
 from wangtrader.core.indicators import sar, sma
 
 METHOD_ID = "q3-04"
@@ -49,11 +54,14 @@ class Params:
     tolerance_points: float = 1.0  # p.84, 96
     stop_points: float | None = 20.0  # 單筆最大風險（推論：全書一貫 20 點）；None = 不設停損
     stop_tick: float = 1.0  # A 極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+    max_wait: int = 10  # 補進場等待根數（書中未給明確數字，沿用第一章慣例，p.87）
     require_extreme: bool = True  # 極端位置前提（p.84「定義和前面所有極端位置訊號一樣」）
     extreme_range: float = 30.0  # p.49, 57（第二章定義）
     extreme_from_prev_close: float = 40.0
     same_side_stop_once: bool = True  # F3，p.92
-    exit_mode: str = "none"  # 推論；書中未提供本訊號出場規則
+    retrace_trigger: float = 15.0  # 折返平倉／反手資格門檻（p.90-91）
+    reversal_enabled: bool = True  # p.91；書中未提示台指不宜使用，預設開啟
+    exit_mode: str = "none"  # 推論；書中未提供本訊號另外的移動停利規則
     profit_target: float = 20.0
     ma_period: int = 10
 
@@ -102,14 +110,26 @@ class TitForTat(Strategy):
                 return Side.LONG, float(a["low"])
         return None
 
+    def _stop(self, side: Side, entry: float, ext: float) -> float | None:
+        """停損＝A 極端點外 stop_tick，但距進場價最多 stop_points（p.87, 90-91）。"""
+        p = self.p
+        if p.stop_points is None:
+            return None
+        if side == Side.LONG:
+            return max(ext - p.stop_tick, entry - p.stop_points)
+        return min(ext + p.stop_tick, entry + p.stop_points)
+
     def on_bar(self, ctx: Context):
         p, df, i = self.p, ctx.df, ctx.i
         sess = int(df.at[i, "session"])
 
-        if ctx.stopped is not None:
-            self._stopped_sides.setdefault(sess, set()).add(ctx.stopped.side)
-
         if ctx.pos is not None:
+            # 追蹤是否曾達成折返門檻的獲利（供反手資格判斷，p.90-91）
+            if ctx.pos.max_profit() >= p.retrace_trigger:
+                ctx.pos.meta["reached_target"] = True
+            ex = retrace_exit(ctx, p.retrace_trigger, 0.0)  # 折返平倉（p.90）
+            if ex is not None:
+                return [ex]
             ex = {
                 "ladder": lambda: ladder_exit(ctx, p.profit_target),
                 "ma": lambda: ma_exit(ctx, "ma", p.profit_target),
@@ -118,26 +138,45 @@ class TitForTat(Strategy):
             }[p.exit_mode]()
             return [ex] if ex else None
 
-        hit = self.detect(df, i)
-        if hit is None:
-            return None
-        side, ext = hit
+        order: Order | None = None
 
-        # F3：同方向已停損過一次
-        if p.same_side_stop_once and side in self._stopped_sides.get(sess, set()):
-            return None
-        # 極端位置前提（p.84）
-        if p.require_extreme and not is_extreme_position(df, i, p.extreme_range, p.extreme_from_prev_close):
-            return None
+        # 停損後反手（p.91）：未達折返門檻獲利即觸停損，且停損K收盤確認穿越A的極端點
+        if ctx.stopped is not None:
+            t = ctx.stopped
+            if t.meta.get("tft_signal"):
+                self._stopped_sides.setdefault(sess, set()).add(t.side)
+                if p.reversal_enabled and not t.meta.get("reached_target"):
+                    lvl = t.meta.get("stop_level")
+                    close = float(df.at[i, "close"])
+                    if lvl is not None:
+                        if t.side == Side.LONG and close < lvl:
+                            order = Order.enter(Side.SHORT, stop=close + (p.stop_points or 20.0),
+                                                reason="以牙還牙(反手)", reversal=True)
+                        elif t.side == Side.SHORT and close > lvl:
+                            order = Order.enter(Side.LONG, stop=close - (p.stop_points or 20.0),
+                                                reason="以牙還牙(反手)", reversal=True)
 
-        b = df.iloc[i]
-        name = "以牙還牙空訊" if side == Side.SHORT else "以牙還牙買訊"
-        stop = None
-        if p.stop_points is not None:
-            entry = float(b["close"])
-            # 停損＝A 極端點外 stop_tick，但距進場價最多 stop_points
-            if side == Side.LONG:
-                stop = max(ext - p.stop_tick, entry - p.stop_points)
-            else:
-                stop = min(ext + p.stop_tick, entry + p.stop_points)
-        return [Order.enter(side, stop=stop, reason=name, extreme=ext)]
+        if order is None:
+            hit = self.detect(df, i)
+            if hit is not None:
+                side, ext = hit
+                # F3：同方向已停損過一次
+                if not (p.same_side_stop_once and side in self._stopped_sides.get(sess, set())):
+                    # 極端位置前提（p.84）
+                    if not p.require_extreme or is_extreme_position(df, i, p.extreme_range, p.extreme_from_prev_close):
+                        b = df.iloc[i]
+                        name = "以牙還牙空訊" if side == Side.SHORT else "以牙還牙買訊"
+                        close = float(b["close"])
+                        dist = abs(close - ext)
+                        if p.stop_points is None or dist <= p.stop_points:  # 立刻進場（p.84）
+                            stop = self._stop(side, close, ext)
+                            order = Order.enter(side, stop=stop, reason=name, extreme=ext,
+                                                stop_level=stop, tft_signal=True)
+                        else:  # 距離 >20 點：等拉回至距A極端點 stop_points 內再補進場（p.87）
+                            limit = ext + p.stop_points * int(side)
+                            stop = self._stop(side, limit, ext)
+                            order = Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
+                                                      reason=name + "(補進場)", extreme=ext,
+                                                      stop_level=stop, tft_signal=True)
+
+        return [order] if order is not None else None

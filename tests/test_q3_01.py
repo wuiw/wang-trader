@@ -118,6 +118,32 @@ def test_opposite_signal_not_invading_reverses_position():
     assert res.signals[1].stop == 9998  # 極端點 9998 + 1 跳 = 9999 但受 20 點上限 → 9998
 
 
+def test_top_extreme_not_unique_is_ignored():
+    # p.17 C3：a 的最高點 10040 與先前 bar0 同高（共頂）→ 極端點非獨一無二，不成立頂雙黑
+    bars = make_bars([
+        (10000, 10040, 9995, 10010),
+        (10010, 10015, 9990, 9995),
+        (10005, 10040, 9980, 9985),   # a：黑K，高點與 bar0 同為 10040 → 共頂
+        (9985, 9986, 9970, 9975),     # b：黑K，收盤跌破 a 低點，外觀符合但因不唯一而不成立
+    ], prev_day=PREV)
+    assert run(DoubleRedBlack(), bars).signals == []
+
+
+def test_retracement_exit_mode():
+    bars = make_bars([
+        (10000, 10002, 9985, 9988),
+        (9988, 9990, 9960, 9962),
+        (9962, 9968, 9950, 9966),   # A：紅K，當下最低 9950
+        (9966, 9972, 9964, 9970),   # B：底雙紅，進場 9970，停損 9950
+        (9970, 9995, 9969, 9993),   # 達獲利目標且雙條件成立（新高9995＋新高收盤9993）→ 停利位置 9995-20=9975
+        (9993, 9994, 9970, 9974),   # 收盤 9974 <= 9975 → 折返停利出場
+    ], prev_day=PREV)
+    res = run(DoubleRedBlack(exit_mode="retracement"), bars)
+    t = res.trades[0]
+    assert t.side == Side.LONG and t.entry_price == 9970
+    assert t.reason_out == "折返停利" and t.exit_price == 9974
+
+
 def test_opposite_signal_invading_prior_close_is_ignored():
     bars = make_bars(BASE + [
         (9993, 9998, 9985, 9990),   # A'：黑K，當下最高

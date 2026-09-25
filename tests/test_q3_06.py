@@ -1,3 +1,5 @@
+from datetime import time
+
 from helpers import make_bars
 
 from wangtrader.core import Side, run
@@ -78,6 +80,21 @@ def test_run_shorter_than_five_is_filtered():
         (10045, 10060, 10042, 10055),  # 隔根收紅
     ])
     assert run(FiveInARowReversal(), bars).signals == []
+
+
+def test_no_entry_after_close_cutoff_is_filtered():
+    # p.123：訊號發生時間距當日收盤不到1小時，一般忽略不操作（此處以絕對收盤前時刻模擬）
+    bars = make_bars([
+        (10100, 10105, 10085, 10090),  # 1 黑
+        (10090, 10092, 10070, 10075),  # 2 黑
+        (10075, 10077, 10055, 10060),  # 3 黑
+        (10060, 10062, 10040, 10045),  # 4 黑
+        (10045, 10047, 10020, 10025),  # 5 黑，當下最低，下影線5點
+        (10025, 10040, 10022, 10035),  # 隔根收紅，未破新低、未過前高 → 訊號時間 09:10，晚於 09:00 cutoff
+        (10035, 10038, 10030, 10032),
+    ])
+    res = run(FiveInARowReversal(no_entry_after=time(9, 0)), bars)
+    assert res.signals == []
 
 
 def test_red_bar_closing_below_prior_close_breaks_the_run():

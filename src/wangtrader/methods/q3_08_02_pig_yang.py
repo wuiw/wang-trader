@@ -10,9 +10,15 @@ K棒組合，取代等待突破/跌破前高前低的完整流程：
     L3 緊接下一根K線（B棒）收紅，且收盤突破A棒最高點。
     L4 此時MA10方向朝上。
     L5 B棒須為「突破均線後最高的一根K線」（創新高），否則即使外觀符合也不成立。
-  空方（豬陽空訊，鏡像，S4為推論）：
-    S1-S3 同上鏡像；S4（推論）此時MA10方向朝下；S5 B棒須為「跌破均線後最低的一根K線」
-    （依 p.182 圖8-29 反推確認）。
+  空方（豬陽空訊，鏡像）：
+    S1-S3 同上鏡像；S4 此時MA10方向朝下（p.177-178，原文於p.177末「(3)當」中斷，p.178
+    「產生這種豬陽空訊時，均線必須朝下…」已確認，與買訊鏡像一致，非推論）；S5 B棒須為「跌破
+    均線後最低的一根K線」（p.178、p.182圖8-29）。
+  L6/S6（p.179-180，圖8-26、圖8-27）：認定「突破/跌破均線後最高/最低K線」的比較基準時，若
+    這次突破/跌破均線前，均線另一側（下方/上方）連續收盤不足3根，比較基準不重置，沿用更早、
+    已有連續3根K線在該側時的比較基準（往前找上一次「真正」的突破/跌破）；足3根才是新的比較
+    起點。實作：`ext_up`／`ext_down` 只在「上一段反向連續根數 >= 3」（或本方向首次出現）時才
+    重置為本根高/低點，否則延續舊基準並持續累計 max/min（見 `prepare()` 主迴圈 `run_len`）。
 進場：B棒收盤價進場（p.177）。
 停損：延用均線順向策略基準 20 點：停損＝B棒收盤 ∓ stop_points（圖8-31 的「20點停損位置」畫在
   訊號K收盤外 20 點；書中本節未另訂新規則）。「延用」同時包含均線順向策略 §5 的「大K線」但書：
@@ -85,14 +91,17 @@ class PigYang(Strategy):
         high = df["high"].to_numpy(float)
         low = df["low"].to_numpy(float)
         ma = df["ma"].to_numpy(float)
+        sess = df["session"].to_numpy()
 
         sig_side = [0] * n
         turn_price = [float("nan")] * n
         turn_sess_col = [-1] * n
 
-        state: str | None = None  # None | 'up' | 'down'
-        ext = float("nan")
-        turn_p = float("nan")
+        state: str | None = None  # None | 'up' | 'down'：目前收盤在均線哪一側
+        run_len = 0  # 目前這一側已連續收盤幾根（含本根），供L6/S6判斷「另一側是否滿3根」
+        ext_up = float("nan")  # L5 比較基準：「突破均線後最高K線」的基準（見L6，未必每次穿越都重置）
+        ext_down = float("nan")  # S5 比較基準（鏡像）
+        turn_p = float("nan")  # 供F2/F4：最近一次穿越均線的位置（不受L6/S6的3根規則影響）
         turn_sess = -1
 
         for i in range(n):
@@ -101,45 +110,56 @@ class PigYang(Strategy):
             c, m = close[i], ma[i]
             pc, pm = close[i - 1], ma[i - 1]
             # 收盤穿越均線 → 趨勢轉折起點；均線剛可用的第一根依收盤在均線哪一側初始化
-            crossed = False
-            if state != "up" and c > m and (state is not None or pm != pm or pc <= pm):
-                state, ext, turn_p, turn_sess = "up", high[i], c, df.at[i, "session"]
-                crossed = True
-            elif state != "down" and c < m and (state is not None or pm != pm or pc >= pm):
-                state, ext, turn_p, turn_sess = "down", low[i], c, df.at[i, "session"]
-                crossed = True
-            if crossed or state is None:
+            new_up = state != "up" and c > m and (state is not None or pm != pm or pc <= pm)
+            new_down = state != "down" and c < m and (state is not None or pm != pm or pc >= pm)
+            if new_up:
+                turn_p, turn_sess = c, df.at[i, "session"]
+                # L6（p.179-180）：僅當跌破均線前已有連續 >=3 根收盤在均線下方，才是「真正」的突破，
+                # 比較基準重置為本根高點；否則視為雜訊，沿用更早、已滿3根時建立的舊基準
+                genuine = state == "down" and run_len >= 3
+                if state is None or genuine or ext_up != ext_up:
+                    ext_up = high[i]
+                else:
+                    ext_up = max(ext_up, high[i])
+                state, run_len = "up", 1
                 continue
+            if new_down:
+                turn_p, turn_sess = c, df.at[i, "session"]
+                genuine = state == "up" and run_len >= 3  # S6（鏡像）
+                if state is None or genuine or ext_down != ext_down:
+                    ext_down = low[i]
+                else:
+                    ext_down = min(ext_down, low[i])
+                state, run_len = "down", 1
+                continue
+            if state is None:
+                continue
+            run_len += 1
 
-            prev_ext = ext
             if state == "up":
-                if c < m:
-                    state, ext, turn_p, turn_sess = "down", low[i], c, df.at[i, "session"]
-                    continue
-                ext = max(ext, high[i])
+                prev_ext = ext_up
+                ext_up = max(ext_up, high[i])
                 a, b = i - 1, i
                 if (
-                    df.at[a, "session"] == df.at[b, "session"]
+                    sess[a] == sess[b]
                     and close[a] < open_[a] and low[a] > ma[a]  # L2：黑K，下影線在MA之上
                     and close[b] > open_[b] and close[b] > high[a]  # L3：紅K收盤突破A高點
                     and m > pm  # L4：均線朝上
-                    and high[b] > prev_ext  # L5：B為突破均線後最高K線
+                    and high[b] > prev_ext  # L5：B為突破均線後最高K線（依L6基準）
                 ):
                     sig_side[i] = 1
                     turn_price[i] = turn_p
                     turn_sess_col[i] = turn_sess
             else:  # state == "down"
-                if c > m:
-                    state, ext, turn_p, turn_sess = "up", high[i], c, df.at[i, "session"]
-                    continue
-                ext = min(ext, low[i])
+                prev_ext = ext_down
+                ext_down = min(ext_down, low[i])
                 a, b = i - 1, i
                 if (
-                    df.at[a, "session"] == df.at[b, "session"]
+                    sess[a] == sess[b]
                     and close[a] > open_[a] and high[a] < ma[a]  # S2：紅K，上影線在MA之下
                     and close[b] < open_[b] and close[b] < low[a]  # S3：黑K收盤跌破A低點
-                    and m < pm  # S4（推論）：均線朝下
-                    and low[b] < prev_ext  # S5：B為跌破均線後最低K線
+                    and m < pm  # S4：均線朝下（p.177-178，非推論）
+                    and low[b] < prev_ext  # S5：B為跌破均線後最低K線（依S6基準）
                 ):
                     sig_side[i] = -1
                     turn_price[i] = turn_p

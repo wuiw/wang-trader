@@ -22,12 +22,55 @@ def test_top_inverted_v_large_bar_override():
     bars = make_bars([
         (10000, 10010, 9998, 10008),   # a1：紅K
         (10008, 10040, 10006, 10038),  # a2：當下唯一最高（雙重最高）
-        (10038, 10039, 9995, 10000),   # b：長黑（實體38點≥30）→ 簡化停損直接進場
+        (10038, 10039, 9995, 10000),   # b：長黑（實體38點＞30，超大K線），距實體中點10019僅19點(<20)→直接進場
     ], prev_day=PREV)
     res = run(VReversal(), bars)
     sig = res.signals[0]
-    assert sig.side == Side.SHORT and sig.reason == "頂倒V(大K簡化)"
+    assert sig.side == Side.SHORT and sig.reason == "頂倒V(超大K)"
     assert sig.price == 10000 and sig.stop == 10020
+
+
+def test_large_bar_tier1_direct_entry():
+    # p.53：訊號K本身漲跌幅>20點、收盤離真實極端點在30點以內 → 直接進場，停損=收盤±20（不套用超大K中點）
+    bars = make_bars([
+        (10000, 10010, 9998, 10008),   # a1：紅K
+        (10008, 10030, 10006, 10028),  # a2：當下唯一最高 10030（雙重最高）
+        (10028, 10029, 10000, 10004),  # b：黑K，實體24點(>20 但<=30)，距極端 26 點(<=30) → tier1 直接進場
+    ], prev_day=PREV)
+    res = run(VReversal(), bars)
+    sig = res.signals[0]
+    assert sig.side == Side.SHORT and sig.reason == "頂倒V(大K直接)"
+    assert sig.price == 10004 and sig.stop == 10024
+
+
+def test_super_large_bar_needs_pullback_to_midpoint():
+    # p.53-54：超大K線且距中點 >=20 點 → 等拉回至距中點 20 點內再補進場
+    bars = make_bars([
+        (10000, 10010, 9998, 10008),   # a1：紅K
+        (10008, 10040, 10006, 10038),  # a2：當下唯一最高 10040
+        (10038, 10039, 9960, 9970),    # b：超大黑K（實體68點），中點=(10038+9970)/2=10004，距收盤34點(>=20)
+        (9990, 9982, 9975, 9980),      # 未拉回到 limit=10004-20=9984（高點9982<9984）
+        (9980, 9985, 9975, 9982),      # 拉回觸及 9984（高點9985>=9984）→ 成交
+        (9982, 9985, 9975, 9980),
+    ], prev_day=PREV)
+    res = run(VReversal(exit_mode="none"), bars)
+    assert res.signals[0].reason == "頂倒V(超大K補進場)"
+    t = res.trades[0]
+    assert t.side == Side.SHORT and t.entry_price == 9984 and t.entry_i == 5
+
+
+def test_time_stall_exit_when_no_progress():
+    bars = make_bars(
+        [
+            (10000, 10002, 9985, 9988),  # a1：黑K
+            (9975, 9976, 9960, 9965),    # a2：當下唯一最低（雙重最低）
+            (9965, 9982, 9963, 9979),    # b：紅K，過一高，立刻進場 9979，停損 9959
+        ]
+        + [(9975, 9976, 9970, 9973)] * 12,  # 12 根原地打轉（未破9979新高、未觸9959停損）→ 無進展
+        prev_day=PREV,
+    )
+    res = run(VReversal(exit_mode="none"), bars)
+    assert res.trades[0].reason_out == "時間停滯出場"
 
 
 def test_bottom_v_needs_pullback_when_far():

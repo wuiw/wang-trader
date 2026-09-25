@@ -146,3 +146,53 @@ def test_reverse_distance_measured_from_session_extreme():
     res = run(FlatDragonfly(), bars)
     assert len(res.trades) == 1 and res.trades[0].reason_out == "停損"
     assert len(res.signals) == 1
+
+
+def test_type3_pullback_buy_does_not_need_extreme_position():
+    """第三型：拉回買進訊號（p.206-207）：當日開盤即在平盤之下，先攻過平盤20點以上，再一根黑K
+    回測跌破平盤、隔根紅K立即收回；收盤刻意設在當日最高附近（非最低），證明第三型不要求 C4/F3
+    的「近當日極端位置」（T3-4，p.222）。"""
+    bars = make_bars([
+        (9980, 9985, 9975, 9982),   # 開盤即在平盤(10000)之下
+        (9982, 10030, 9980, 10025),  # 直接攻過平盤，最高10030，距平盤30點 >= 20
+        (10025, 10028, 9995, 9998),  # A：僅一根黑K跌破平盤
+        (9998, 10029, 9996, 10026),  # B：紅K收回平盤之上，收盤10026貼近當日最高10030（非最低）
+    ], prev_day=PREV)
+    res = run(FlatDragonfly(use_five_reversal=False), bars)
+    sig = res.signals[0]
+    assert sig.side == Side.LONG and sig.reason == "平盤蜻蜓點水拉回買訊"
+    assert sig.price == 10026 and sig.stop == 10006
+
+
+def test_type4_bounce_short_does_not_need_extreme_position():
+    """第四型：反彈再空訊號（鏡像第三型）：當日開盤即在平盤之上，先跌破平盤20點以上，再一根紅K
+    反彈突破平盤、隔根黑K立即壓回；收盤刻意設在當日最低附近（非最高），證明不要求近極端位置。"""
+    bars = make_bars([
+        (10020, 10025, 10015, 10018),  # 開盤即在平盤(10000)之上
+        (10018, 10020, 9965, 9970),    # 直接跌破平盤，最低9965，距平盤35點 >= 20
+        (9970, 10005, 9968, 10002),    # A：僅一根紅K突破平盤
+        (10002, 10003, 9960, 9963),    # B：黑K壓回平盤之下，收盤9963貼近當日最低9960（非最高）
+    ], prev_day=PREV)
+    res = run(FlatDragonfly(use_five_reversal=False), bars)
+    sig = res.signals[0]
+    assert sig.side == Side.SHORT and sig.reason == "平盤蜻蜓點水反彈空訊"
+    assert sig.price == 9963 and sig.stop == 9983
+
+
+def test_five_reversal_exit_option():
+    """出場選項：五紅遇首黑（p.222，圖9-37）：連五紅（幅度>=40）後首見不創新高的黑K -> 平倉。"""
+    bars = make_bars([
+        (10000, 10010, 9998, 10008),
+        (10008, 10030, 10006, 10028),
+        (10025, 10028, 9995, 9998),    # A
+        (9998, 10006, 9996, 10003),    # B：進場 10003
+        (10003, 10024, 10002, 10023),
+        (10023, 10044, 10022, 10043),
+        (10043, 10064, 10042, 10063),
+        (10063, 10084, 10062, 10083),
+        (10083, 10104, 10082, 10103),  # 連五紅最後一根，當下最高
+        (10103, 10103, 10090, 10095),  # 黑K未創新高、未破前低 -> 五紅遇首黑
+    ], prev_day=PREV)
+    res = run(FlatDragonfly(use_five_reversal=True), bars)
+    t = res.trades[0]
+    assert t.reason_out == "五紅遇首黑" and t.exit_price == 10095

@@ -69,6 +69,17 @@ def test_stop_without_15pts_profit_reverses_on_close():
     assert res.trades[1].side == Side.LONG and res.trades[1].entry_price == 10055
 
 
+def test_time_stall_exit_when_no_progress():
+    # p.148：既未觸及20點停損、也未達15點折返停利，約一小時（12根5分K）仍無明確輸贏 → 撤單離場
+    bars = make_bars(
+        [(10045, 10046, 10025, 10030)]  # 開盤首根：跳高45點，收黑，stop=10050
+        + [(10030, 10032, 10028, 10030)] * 12,  # 12 根原地打轉，未觸停損、獲利未達15點
+        prev_day=PREV,
+    )
+    res = run(OpeningBar(), bars)
+    assert res.trades[0].reason_out == "時間停滯出場"
+
+
 def test_retrace_exit_after_15pts_profit():
     bars = make_bars([
         (10045, 10046, 10025, 10030),  # 跳高收黑空訊，stop=10050

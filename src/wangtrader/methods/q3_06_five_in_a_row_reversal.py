@@ -23,6 +23,9 @@
   F4 「下跌的黑K線」／「上漲的紅K線」：每根收盤須低於／高於前一根收盤（p.121；「上漲K線」的定義
      見 p.55「B 雖為紅K線，但不為上漲K線」＝收盤未高於前一根收盤；p.127「每一根紅K線都是上漲」），
      require_stepping 開關控制，預設開啟。
+  F5 訊號發生時間距當日收盤不到1小時 → 一般忽略不操作（p.123）。「距收盤」須知道未來收盤時刻，
+     屬 CODING_SPEC 第4點所稱「時鐘時間規則」，故做成可選參數 no_entry_after（收盤前1小時的絕對
+     時刻），預設 None（關閉）；書中示範收盤13:30，1小時前即12:30。
 
 週期：不限（書中以5分鐘K線示範，程式不假設週期）。所有門檻以點數／根數表示。
 """
@@ -30,6 +33,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 
 import pandas as pd
 
@@ -47,6 +51,7 @@ class Params:
     shadow_max_ratio: float = 1.0 / 5  # 影線濾網：占實體比例上限（p.128-129）
     stop_points: float = 20.0  # 停損點數，以訊號K收盤價為基準（p.124, 126）
     stale_bars: int | None = None  # 可選：持倉逾N根仍無獲利即平倉（p.135，書中為建議、非嚴格規則，預設關閉）
+    no_entry_after: time | None = None  # F5：距收盤不到1小時忽略（p.123）；時鐘時間規則，預設關閉
 
 
 class FiveInARowReversal(Strategy):
@@ -137,6 +142,8 @@ class FiveInARowReversal(Strategy):
                         orders = [Order.exit("平倉(創新低)")]
                 elif b["close"] > df.at[last, "high"]:  # C5 失敗：收盤過一高 → V字轉折，非本訊號（與空方對稱，p.121「反之」）
                     orders = None
+                elif p.no_entry_after is not None and hasattr(b["time"], "time") and b["time"].time() > p.no_entry_after:
+                    orders = None  # F5：距收盤不到1小時忽略（p.123）
                 else:
                     stop = b["close"] - p.stop_points
                     orders = [Order.enter(Side.LONG, stop=stop, reason="連五黑遇首紅",
@@ -147,6 +154,8 @@ class FiveInARowReversal(Strategy):
                         orders = [Order.exit("平倉(創新高)")]
                 elif b["close"] < df.at[last, "low"]:  # C5 失敗：破一低 → 頂倒V空訊，非本訊號
                     orders = None
+                elif p.no_entry_after is not None and hasattr(b["time"], "time") and b["time"].time() > p.no_entry_after:
+                    orders = None  # F5：距收盤不到1小時忽略（p.123）
                 else:
                     stop = b["close"] + p.stop_points
                     orders = [Order.enter(Side.SHORT, stop=stop, reason="連五紅遇首黑",

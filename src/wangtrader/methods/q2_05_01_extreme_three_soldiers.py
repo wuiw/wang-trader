@@ -7,6 +7,10 @@
     第二根收盤>第一根、第三根收盤>第二根，三根皆為上漲K線（不得平盤/十字線）；
     第一根最低點須為三根中最低。
   黑三兵（空）：與紅三兵鏡射（第一根黑K最高點為層級2轉折峰點且為當下盤中最高點……）。
+  C0/C0' 極端位置前提（p.161）：由近期波段高（低）點到三兵組合最低（高）點的盤中高低距離須超過
+    30 點，未達門檻者即使三兵三根K線本身完全符合定義，也不能作為訊號使用；此測量對象與 C4/C4'
+    幅度濾網（三兵組合本身10～30點）不同，不可混用。本模組以 `core.bars.is_extreme_position()`
+    （第一根K線為止，含跳空以平盤起算，p.162「以昨收起算」）實作，等同 q3-01「極端位置」定義。
 進場（p.157–159, 163）：幅度（第一根極端點到三兵另一端）在 min_range～max_range 點之間才有效；
   進場價距停損（第一根極端點）≤ stop_max 點 → 第三根收盤立刻進場；
   距離較大 → 掛限價等拉回到「極端點 ± stop_max」，max_wait 根內未成交即失效。
@@ -17,6 +21,7 @@
   F3 幅度 < min_range → 無效（p.157–158）
   F4 幅度 > max_range → 宜忽略（skip_when_over_max_range=True）或等拉回/反彈補進場（預設，p.157–158）
   F5 同方向訊號被停損後，同型態訊號本交易日不再使用（p.163）
+  F6/C0 由近期波段高（低）點到三兵組合的盤中高低距離未超過30點 → 不符合極端位置前提，不得使用（p.161）
 出場：exit_mode = "retrace"（獲利超過15點後折返進場點出場，p.171）
   | "ladder"（p.171 圖5-20「預設初始獲利20點後啟動折返20點停利」：最大獲利達 ladder_target 後，
     自最有利價回落達 ladder_target 即出場，停利點隨新高逐階上移）| "none"。
@@ -33,6 +38,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from wangtrader.core import Context, Order, Side, Strategy
+from wangtrader.core.bars import is_extreme_position
 from wangtrader.core.exits import retrace_exit
 from wangtrader.core.pivots import Pivot, find_pivots
 
@@ -44,6 +50,8 @@ class Params:
     level: int = 2  # 峰谷點層級（p.157，層級2轉折點）
     min_range: float = 10.0  # C4/C4'：幅度下限，<此點數無效訊號（p.157–158）
     max_range: float = 30.0  # C4/C4'：幅度上限，>此點數宜忽略或等拉回/反彈（p.157–158）
+    swing_range: float = 30.0  # C0/F6：極端位置前提，近期波段高低點到三兵組合的盤中距離下限（p.161）
+    swing_from_prev_close: float = 40.0  # C0/F6：距平盤替代門檻（p.162「以昨收起算」）
     skip_when_over_max_range: bool = False  # 幅度超過上限時：False=補進場等拉回；True=直接忽略（書中(a)(b)並列，見12）
     stop_max: float = 20.0  # 停損控制上限，亦作補進場之目標距離（p.157–158, 163）
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，比照 q3-01 慣例預設，見12）
@@ -87,8 +95,10 @@ class ExtremeThreeSoldiers(Strategy):
         ):
             pv = self._pivot_at(i - 2, "trough", i)
             if pv is not None and a["low"] == df.at[i, "sess_low"]:
-                amp = max(a["high"], b["high"], c["high"]) - a["low"]
-                return Side.LONG, float(a["low"]), float(amp)
+                # F6/C0：近期波段高點到第一根紅K最低點的盤中距離須超過30點（p.161，以a所在K線為準）
+                if is_extreme_position(df, i - 2, self.p.swing_range, self.p.swing_from_prev_close):
+                    amp = max(a["high"], b["high"], c["high"]) - a["low"]
+                    return Side.LONG, float(a["low"]), float(amp)
         # 黑三兵（空）：C1'-C3'
         if (
             a["close"] < a["open"] and b["close"] < b["open"] and c["close"] < c["open"]
@@ -97,8 +107,10 @@ class ExtremeThreeSoldiers(Strategy):
         ):
             pv = self._pivot_at(i - 2, "peak", i)
             if pv is not None and a["high"] == df.at[i, "sess_high"]:
-                amp = a["high"] - min(a["low"], b["low"], c["low"])
-                return Side.SHORT, float(a["high"]), float(amp)
+                # F6/C0'：近期波段低點到第一根黑K最高點的盤中距離須超過30點（p.161，鏡射）
+                if is_extreme_position(df, i - 2, self.p.swing_range, self.p.swing_from_prev_close):
+                    amp = a["high"] - min(a["low"], b["low"], c["low"])
+                    return Side.SHORT, float(a["high"]), float(amp)
         return None
 
     def _ladder_exit(self, ctx: Context) -> Order | None:

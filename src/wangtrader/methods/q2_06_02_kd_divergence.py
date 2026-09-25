@@ -23,8 +23,8 @@
   延用前一日尾盤狀態；跳空 ≥ 門檻則重新起算（不延續前一日的 P1／待確認狀態）。
 停損（p.209「依背離低點(B)為停損」）：stop_mode 三選一：
   "endpoint"：背離端點 B＝第二個端點（本次訊號創新高/新低的極端價，即當下盤中最高/最低），非前波峰谷位 P1。
-  "ma_signal"：比照第一章均線訊號停損法（q2-01 p.13）：
-    多＝收盤−(10+收盤個位數)；空＝收盤+(10+收盤個位數)。
+  "ma_signal"：比照第一章均線訊號停損法（q2-01 p.13-14）：
+    多＝收盤−(10+收盤個位數)；空＝收盤+(20−收盤個位數)（個位數0→20點，非買賣鏡像對稱公式）。
   "combined"（預設，原文明確：p.209「取兩者較低者」為多單、鏡像取較高者為空單）：
     多＝min(endpoint, ma_signal)；空＝max(endpoint, ma_signal)。
   若進場距停損 > stop_points（預設20），先忽略，等拉回縮小距離後掛限價補進場。
@@ -103,10 +103,10 @@ def _cross(df: pd.DataFrame, i: int) -> str | None:
 
 
 def _ma_signal_stop(close: float, side: Side) -> float:
-    """比照 q2-01 均線訊號停損法（p.13）：收盤 ∓ (10 + 個位數)。"""
+    """比照 q2-01 均線訊號停損法：多＝收盤−(10+個位數)（p.13）；
+    空＝收盤+(20−個位數)（p.14，個位數0時為20點；非買賣鏡像互換，兩式不對稱）。"""
     ones = int(round(abs(close))) % 10
-    offset = 10 + ones
-    return close - offset if side == Side.LONG else close + offset
+    return close - (10 + ones) if side == Side.LONG else close + (20 - ones)
 
 
 def _track_side(chain: _Chain, df: pd.DataFrame, i: int, p: Params, *, is_short: bool):
