@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+  <rect x="8" y="8" width="884" height="544" fill="none" stroke="#333333" stroke-width="1.5"/>
+
+  <!-- title banner -->
+  <rect x="40" y="30" width="330" height="46" fill="#8fa8b8"/>
+  <text x="205" y="60" font-size="24" font-weight="bold" fill="#c0392b" text-anchor="middle">移動停損停利的方式</text>
+
+  <!-- zigzag line: 1(low) A(high) 2(low) 2(high) 3(low) 3(high) 4(low) 4(high) B(low, exit) -->
+  <polyline points="90,470 195,340 245,415 355,255 400,330 495,195 545,270 640,150 690,220 830,340"
+            fill="none" stroke="#2e2a63" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- dashed support/resistance lines -->
+  <line x1="130" y1="340" x2="245" y2="340" stroke="#c0392b" stroke-width="2.5" stroke-dasharray="8,6"/>
+  <line x1="640" y1="220" x2="830" y2="220" stroke="#c0392b" stroke-width="2.5" stroke-dasharray="8,6"/>
+
+  <!-- point labels: black filled troughs -->
+  <circle cx="90" cy="470" r="16" fill="#1a1a1a"/>
+  <text x="90" y="476" font-size="15" fill="#ffffff" text-anchor="middle">1</text>
+
+  <circle cx="245" cy="415" r="16" fill="#1a1a1a"/>
+  <text x="245" y="421" font-size="15" fill="#ffffff" text-anchor="middle">2</text>
+
+  <circle cx="400" cy="330" r="16" fill="#1a1a1a"/>
+  <text x="400" y="336" font-size="15" fill="#ffffff" text-anchor="middle">3</text>
+
+  <circle cx="545" cy="270" r="16" fill="#1a1a1a"/>
+  <text x="545" y="276" font-size="15" fill="#ffffff" text-anchor="middle">4</text>
+
+  <!-- red-outlined peak labels -->
+  <text x="195" y="335" font-size="20" font-weight="bold" fill="#c0392b" text-anchor="middle">A</text>
+  <circle cx="355" cy="255" r="17" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <text x="355" y="261" font-size="15" fill="#c0392b" text-anchor="middle">2</text>
+  <circle cx="495" cy="195" r="17" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <text x="495" y="201" font-size="15" fill="#c0392b" text-anchor="middle">3</text>
+  <circle cx="640" cy="150" r="17" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <text x="640" y="156" font-size="15" fill="#c0392b" text-anchor="middle">4</text>
+
+  <!-- exit point B -->
+  <text x="835" y="345" font-size="20" font-weight="bold" fill="#c0392b" text-anchor="middle">B</text>
+  <text x="850" y="300" font-size="20" font-weight="bold" fill="#c0392b" text-anchor="middle">出場</text>
+  <path d="M 878 315 L 845 335" stroke="#2e6b4f" stroke-width="5" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- entry label + arrow -->
+  <text x="130" y="395" font-size="17" font-weight="bold" fill="#c0392b" text-anchor="middle">假設的買進點</text>
+  <path d="M 150 405 L 190 350" stroke="#2e6b4f" stroke-width="5" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- rising stop-loss arrows between troughs -->
+  <path d="M 130 460 L 220 425" stroke="#c0392b" stroke-width="6" fill="none" marker-end="url(#arrowRed)"/>
+  <path d="M 285 400 L 375 340" stroke="#c0392b" stroke-width="6" fill="none" marker-end="url(#arrowRed)"/>
+  <path d="M 435 320 L 520 260" stroke="#c0392b" stroke-width="6" fill="none" marker-end="url(#arrowRed)"/>
+
+  <defs>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2e6b4f"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <text x="450" y="530" font-size="18" text-anchor="middle" fill="#1a1a1a">圖 4-21</text>
+</svg>

@@ -28,6 +28,11 @@ PVT 通道／趨勢階梯（p.95-98）：本模組自行實作（不與其他方
   該訊號的停損位置，沿用前一日訊號於本根收盤進場、停損不變；若已跌破/突破則作廢，須重新尋找新結構。
   同方向重新進場（p.106）：同一段控盤（PVT階梯未被突破/跌破）內，前一組結構出場後，狀態機以其
   (2)點接續作為新的(0)點繼續尋找下一組N型/倒N型，可再次進場（沿用既有狀態機延續機制，無需特別分支）。
+  補進場停損沿用首次進場（p.124，新補拍圖3-33）：「無論拉軟，可以A買訊的停損為基準，在B補進場，
+  停損位置不變」——同段控盤內的同方向重新進場（含上述「同方向重新進場」情境），一律沿用該段控盤
+  第一次進場當時算出的停損，不依新訊號的收盤價重新計算；控盤易主（regime 切換）時才重新起算。
+  （推論：原文僅舉A→B單一案例，本模組將其套用到整段控盤延續期間的所有後續同方向重新進場，
+  可用 `reentry_keep_stop=False` 關閉還原為逐次重新計算。）
   起始點距PVT過遠的例外放行（p.107）：F2 判斷(0)距階梯 > max_dev_from_ladder 時，若確認(3)當下(2)距
   當時階梯已在門檻內，訊號仍視為有效。
 停損（p.100）：與均線三步驟策略相同的個位數公式（本模組自行複製，不 import q2-01），
@@ -162,6 +167,7 @@ class Params:
     carry_over_to_next_open: bool = True  # 隔日開盤延續進場（p.105-106）：F4濾掉的訊號沿用隔日開盤第一根
     giveback_points: float = 15.0  # 折返停利點數（書中舉例15或20點，p.108/118）
     ladder_exit: bool = True  # 已獲利部位可用 PVT 階梯停利（p.108, 6.2）
+    reentry_keep_stop: bool = True  # 補進場沿用同段控盤首次進場的停損，不重新計算（p.124，圖3-33；推論見上）
 
 
 class PVTNType(Strategy):
@@ -192,6 +198,7 @@ class PVTNType(Strategy):
             "regime": None, "breakout_i": None, "breakout_price": None,
             "LONG": {"c0": None, "c1": None, "c2": None, "phase": "need0"},
             "SHORT": {"c0": None, "c1": None, "c2": None, "phase": "need0"},
+            "long_stop": None, "short_stop": None,  # 同段控盤首次進場的停損，供補進場沿用（p.124）
         }
 
     def _state(self, sess: int) -> dict:
@@ -346,6 +353,7 @@ class PVTNType(Strategy):
             c0 = self._last_confirmed(self._troughs_by_confirm, i)
             self._reset_structure(st, "LONG", c0)
             self._reset_structure(st, "SHORT", None)
+            st["long_stop"] = None  # 新一段控盤，首次進場重新計算停損（p.124）
         elif switch_bear:
             st["regime"] = "bear"
             st["breakout_i"], st["breakout_price"] = i, close
@@ -353,6 +361,7 @@ class PVTNType(Strategy):
             c0 = self._last_confirmed(self._peaks_by_confirm, i)
             self._reset_structure(st, "SHORT", c0)
             self._reset_structure(st, "LONG", None)
+            st["short_stop"] = None  # 新一段控盤，首次進場重新計算停損（p.124）
 
         # 3. N型 / 倒N型 結構推進
         if st["regime"] == "bull":
@@ -360,7 +369,7 @@ class PVTNType(Strategy):
             if hit is not None:
                 c1_price, c0 = hit
                 if self._passes_filters(df, i, c0, c1_price, st, Side.LONG):
-                    stop = self._final_stop(Side.LONG, close, st)
+                    stop = self._entry_stop(Side.LONG, close, st)
                     if self._blocked_by_time_filter(df, i):  # F4：延後至隔日開盤延續（見上）
                         if p.carry_over_to_next_open:
                             self._pending_carry = {"side": Side.LONG, "stop": stop}
@@ -372,7 +381,7 @@ class PVTNType(Strategy):
             if hit is not None:
                 c1_price, c0 = hit
                 if self._passes_filters(df, i, c0, c1_price, st, Side.SHORT):
-                    stop = self._final_stop(Side.SHORT, close, st)
+                    stop = self._entry_stop(Side.SHORT, close, st)
                     if self._blocked_by_time_filter(df, i):
                         if p.carry_over_to_next_open:
                             self._pending_carry = {"side": Side.SHORT, "stop": stop}
@@ -381,6 +390,16 @@ class PVTNType(Strategy):
                 self._reset_structure(st, "SHORT", st["SHORT"]["c2"])
 
         return orders or None
+
+    def _entry_stop(self, side: Side, close: float, st: dict) -> float:
+        """補進場沿用同段控盤首次進場的停損（p.124，圖3-33：「無論拉軟，可以A買訊的停損為基準，
+        在B補進場，停損位置不變」）；`reentry_keep_stop=False` 時每次都重新計算。"""
+        key = "long_stop" if side == Side.LONG else "short_stop"
+        if self.p.reentry_keep_stop and st[key] is not None:
+            return st[key]
+        stop = self._final_stop(side, close, st)
+        st[key] = stop
+        return stop
 
     def _final_stop(self, side: Side, close: float, st: dict) -> float:
         stop = _digit_stop(side, close, self.p.stop_min_offset, self.p.stop_integer_points)

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" font-family="sans-serif">
+  <rect width="1000" height="480" fill="#ffffff"/>
+
+  <!-- Left panel: N型觸底收斂 -->
+  <g>
+    <text x="20" y="60" font-size="18">90</text>
+    <line x1="45" y1="55" x2="440" y2="55" stroke="#999" stroke-width="1"/>
+    <text x="20" y="180" font-size="18">70</text>
+    <line x1="45" y1="175" x2="440" y2="175" stroke="#999" stroke-width="1"/>
+    <text x="20" y="330" font-size="18">30</text>
+    <line x1="45" y1="325" x2="440" y2="325" stroke="#999" stroke-width="1"/>
+    <text x="20" y="410" font-size="18">10</text>
+    <line x1="45" y1="405" x2="440" y2="405" stroke="#999" stroke-width="1"/>
+
+    <!-- 快速%D(45) blue solid -->
+    <polyline points="60,90 100,340 160,360 220,310 260,340 300,400 340,405 380,395 420,360" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+    <!-- 快速%D(1) red solid -->
+    <polyline points="55,190 100,380 160,400 220,150 260,240 300,270 340,405 380,400 420,330" fill="none" stroke="#c0392b" stroke-width="4"/>
+    <!-- dashed black N-shape overlay for 45 line trend -->
+    <path d="M 60,340 Q 160,440 220,150 Q 280,300 420,340" fill="none" stroke="#000" stroke-width="3" stroke-dasharray="10,6"/>
+    <path d="M 250,270 L 265,300 L 280,270" fill="none" stroke="#000" stroke-width="3"/>
+
+    <circle cx="300" cy="400" r="14" fill="none" stroke="#8b1a1a" stroke-width="3"/>
+    <path d="M 300,415 L 340,395" stroke="#000" stroke-width="2" marker-end="url(#arrow2)"/>
+    <path d="M 100,395 L 90,350" stroke="#000" stroke-width="2" marker-end="url(#arrow2)"/>
+
+    <rect x="345" y="360" width="70" height="40" rx="8" fill="#f5c26b" stroke="#c07a1e"/>
+    <text x="358" y="388" font-size="24" font-weight="bold">買</text>
+
+    <text x="30" y="480" font-size="22" font-weight="bold">N型觸底收歛</text>
+    <text x="30" y="530" font-size="16" fill="#7a3010" transform="rotate(-70 30 530)"></text>
+    <text x="70" y="500" font-size="16" fill="#1a3a8f">快速%D(45)</text>
+    <text x="130" y="530" font-size="16" fill="#c0392b">快速%D(1)</text>
+  </g>
+
+  <!-- Right panel: N型觸頂收斂 -->
+  <g transform="translate(500,0)">
+    <text x="20" y="60" font-size="18">90</text>
+    <line x1="45" y1="55" x2="440" y2="55" stroke="#999" stroke-width="1"/>
+    <text x="20" y="180" font-size="18">70</text>
+    <line x1="45" y1="175" x2="440" y2="175" stroke="#999" stroke-width="1"/>
+    <text x="20" y="330" font-size="18">30</text>
+    <line x1="45" y1="325" x2="440" y2="325" stroke="#999" stroke-width="1"/>
+    <text x="20" y="410" font-size="18">10</text>
+    <line x1="45" y1="405" x2="440" y2="405" stroke="#999" stroke-width="1"/>
+
+    <!-- 快速%D(45) blue -->
+    <polyline points="30,300 90,110 150,180 210,80 260,60 300,90 340,170 390,260" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+    <!-- 快速%D(1) red -->
+    <polyline points="20,330 90,140 150,220 210,110 260,90 300,140 340,430 390,470" fill="none" stroke="#c0392b" stroke-width="4"/>
+
+    <path d="M 30,180 Q 90,60 150,180 Q 210,80 270,75" fill="none" stroke="#000" stroke-width="3" stroke-dasharray="10,6"/>
+    <path d="M 130,150 L 150,190 L 170,150" fill="none" stroke="#000" stroke-width="3"/>
+    <path d="M 220,140 L 235,110 L 250,140" fill="none" stroke="#000" stroke-width="3"/>
+
+    <circle cx="290" cy="80" r="14" fill="none" stroke="#8b1a1a" stroke-width="3"/>
+    <path d="M 310,90 L 350,180" stroke="#f5a623" stroke-width="4"/>
+    <rect x="330" y="170" width="70" height="40" rx="8" fill="#f5c26b" stroke="#c07a1e"/>
+    <text x="345" y="198" font-size="24" font-weight="bold">空</text>
+
+    <text x="30" y="480" font-size="22" font-weight="bold">N型觸頂收歛</text>
+    <text x="330" y="260" font-size="16" fill="#1a3a8f">快速%D(45)</text>
+    <text x="330" y="430" font-size="16" fill="#c0392b">快速%D(1)</text>
+  </g>
+
+  <defs>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#000"/>
+    </marker>
+  </defs>
+</svg>

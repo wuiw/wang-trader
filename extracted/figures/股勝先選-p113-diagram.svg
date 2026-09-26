@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" font-family="sans-serif">
+  <rect x="0" y="0" width="900" height="460" fill="#ffffff"/>
+  <text x="20" y="25" font-size="16" fill="#333333">收盤價線</text>
+
+  <!-- axes box -->
+  <rect x="20" y="35" width="860" height="380" fill="none" stroke="#999999" stroke-width="1"/>
+  <!-- horizontal gridlines -->
+  <g stroke="#dddddd" stroke-width="1">
+    <line x1="20" y1="100" x2="880" y2="100"/>
+    <line x1="20" y1="165" x2="880" y2="165"/>
+    <line x1="20" y1="230" x2="880" y2="230"/>
+    <line x1="20" y1="295" x2="880" y2="295"/>
+    <line x1="20" y1="360" x2="880" y2="360"/>
+  </g>
+  <!-- vertical gridlines -->
+  <g stroke="#dddddd" stroke-width="1">
+    <line x1="290" y1="35" x2="290" y2="415"/>
+    <line x1="560" y1="35" x2="560" y2="415"/>
+  </g>
+
+  <!-- long-period MA (dark blue): slow, smooth decline into the tangle then slow rise -->
+  <path d="M 30 130 C 200 220, 350 300, 480 320 S 650 260, 820 170"
+        fill="none" stroke="#1f3864" stroke-width="3"/>
+
+  <!-- medium MA (red): comes down from mid, flattens through tangle, then rises moderately -->
+  <path d="M 30 280 C 150 260, 300 300, 480 330 S 680 300, 860 200"
+        fill="none" stroke="#c0392b" stroke-width="3"/>
+
+  <!-- short MA (teal/dark green): choppier, steepest reaction, dips then shoots up hardest -->
+  <path d="M 30 330 C 100 260, 180 340, 260 320 S 380 360, 480 335
+           S 560 220, 620 150 S 700 260, 760 170 S 820 260, 860 150"
+        fill="none" stroke="#2e6b4f" stroke-width="2.5"/>
+
+  <!-- faint raw price line (thin grey, jagged) behind everything -->
+  <path d="M 30 250 L 60 270 L 90 240 L 120 280 L 150 300 L 180 260 L 210 320 L 240 300
+           L 270 330 L 300 310 L 330 335 L 360 320 L 390 340 L 420 330 L 450 345 L 480 330
+           L 510 300 L 540 250 L 570 200 L 600 160 L 630 190 L 660 150 L 690 210 L 720 160
+           L 750 130 L 780 170 L 810 120 L 840 150 L 860 110"
+        fill="none" stroke="#bbbbbb" stroke-width="1"/>
+
+  <!-- callout box -->
+  <rect x="330" y="80" width="160" height="60" rx="8" fill="#ffffff" stroke="#333333" stroke-width="1.5"/>
+  <text x="410" y="115" text-anchor="middle" font-size="18" font-weight="bold" fill="#111111">均線糾纏</text>
+  <path d="M 410 140 L 470 250" stroke="#333333" stroke-width="1.5" fill="none"/>
+
+  <!-- circled marker 1 at the convergence point -->
+  <ellipse cx="480" cy="325" rx="22" ry="30" fill="none" stroke="#d99a3d" stroke-width="3"/>
+  <circle cx="500" cy="270" r="12" fill="#ffffff" stroke="#c0392b" stroke-width="1.5"/>
+  <text x="500" y="275" text-anchor="middle" font-size="13" fill="#c0392b">1</text>
+
+  <text x="450" y="440" text-anchor="middle" font-size="15" fill="#555555">
+    示意圖：三條均線（藍／紅／綠）由開口擴大的多頭排列逐漸收斂糾纏於標示①處，趨勢待變盤
+  </text>
+</svg>

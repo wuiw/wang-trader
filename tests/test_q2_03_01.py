@@ -202,6 +202,46 @@ def test_same_direction_reentry_after_exit_without_regime_switch():
     assert res.trades[1].side == Side.LONG and res.trades[1].entry_price == 117
 
 
+def test_reentry_keeps_first_stop_by_default():
+    """p.124（圖3-33）：「無論拉軟，可以A買訊的停損為基準，在B補進場，停損位置不變」——
+    同段控盤內第二次（B）進場預設沿用第一次（A）的停損，不依B自己的收盤價重新計算。"""
+    rows = LONG_BASE + [
+        (104, 112, 103, 111),
+        (111, 112, 104, 105),  # 觸發折返5點停利出場（收盤105）
+        (105, 108, 100, 103),
+        (103, 106, 104, 105),
+        (105, 118, 104, 117),  # 收盤117突破新峰位112 → 第二次買進訊號
+    ]
+    bars = make_bars(rows)
+    res = run(PVTNType(giveback_points=5.0, ladder_exit=False, **KW), bars)
+    assert [s.stop for s in res.signals] == [90, 90]
+
+
+def test_reentry_keep_stop_false_recomputes_each_time():
+    """reentry_keep_stop=False 時還原為逐次依當根收盤重新計算停損。"""
+    rows = LONG_BASE + [
+        (104, 112, 103, 111),
+        (111, 112, 104, 105),
+        (105, 108, 100, 103),
+        (103, 106, 104, 105),
+        (105, 118, 104, 117),
+    ]
+    bars = make_bars(rows)
+    res = run(PVTNType(giveback_points=5.0, ladder_exit=False, reentry_keep_stop=False, **KW), bars)
+    stops = [s.stop for s in res.signals]
+    assert stops[0] == 90
+    assert stops[1] != 90
+
+
+def test_reentry_stop_resets_after_regime_switch():
+    """控盤易主（regime切換）後應重新起算停損，不沿用前一段控盤的舊值（p.124：「同段控盤」內才不重新計算）。"""
+    bars = make_bars(REVERSAL_ROWS)
+    res = run(PVTNType(giveback_points=1000.0, ladder_exit=False, **KW), bars)
+    assert [s.side for s in res.signals] == [Side.LONG, Side.SHORT]
+    assert res.signals[0].stop == 90
+    assert res.signals[1].stop != 90  # 新一段（空方）控盤重新計算，不沿用多方停損
+
+
 def test_f2_exception_when_point2_is_within_threshold_at_confirmation():
     """p.107：(0)距階梯原本超過門檻，但確認(3)時(2)距當時階梯已在門檻內 → 訊號仍視為有效。"""
     from wangtrader.methods.q2_03_01_pvt_n_type import _Pivot

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" font-family="sans-serif">
+  <rect width="1000" height="480" fill="#ffffff"/>
+
+  <!-- Left: 外側黃金交叉 -->
+  <g>
+    <line x1="20" y1="70" x2="440" y2="70" stroke="#999" stroke-width="1"/>
+    <line x1="20" y1="150" x2="440" y2="150" stroke="#999" stroke-width="1"/>
+    <line x1="20" y1="330" x2="440" y2="330" stroke="#999" stroke-width="1"/>
+    <text x="10" y="345" font-size="16">10</text>
+
+    <!-- 快速%D(45) blue: high, declining, small dip at end then up -->
+    <polyline points="30,60 90,150 140,155 190,160 240,220 280,300 320,340 350,335 390,300 420,240" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+    <!-- 快速%D(7) red: lower, bumps up then falls to meet blue at bottom then both rise -->
+    <polyline points="30,180 60,230 100,190 140,140 180,175 220,250 260,320 300,340 330,338 350,335 390,270 420,190" fill="none" stroke="#c0392b" stroke-width="4"/>
+
+    <circle cx="330" cy="337" r="10" fill="none" stroke="#8b1a1a" stroke-width="2"/>
+    <rect x="345" y="360" width="60" height="40" rx="8" fill="#f5c26b" stroke="#c07a1e"/>
+    <text x="358" y="388" font-size="22" font-weight="bold">買</text>
+
+    <text x="80" y="500" font-size="24" font-weight="bold">外側黃金交叉</text>
+    <text x="140" y="230" font-size="15" fill="#c0392b" transform="rotate(-55 140 230)">快速%D(7)</text>
+    <text x="250" y="230" font-size="15" fill="#1a3a8f" transform="rotate(-60 250 230)">快速%D(45)</text>
+  </g>
+
+  <!-- Right: 外側死亡交叉 -->
+  <g transform="translate(520,0)">
+    <line x1="20" y1="70" x2="440" y2="70" stroke="#999" stroke-width="1"/>
+    <text x="445" y="75" font-size="16">90</text>
+    <line x1="20" y1="150" x2="440" y2="150" stroke="#999" stroke-width="1"/>
+
+    <!-- 快速%D(45) blue: rises steadily to a peak then falls -->
+    <polyline points="30,330 80,290 130,230 180,170 220,110 260,80 290,70 320,110 360,160 400,180 430,220" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+    <!-- 快速%D(7) red: rises faster, double-peak, sharper fall -->
+    <polyline points="30,300 60,180 90,140 120,190 150,150 190,90 220,60 250,110 280,160 310,180 340,150 370,175 400,155 430,270" fill="none" stroke="#c0392b" stroke-width="4"/>
+
+    <circle cx="255" cy="75" r="10" fill="none" stroke="#8b1a1a" stroke-width="2"/>
+    <rect x="330" y="30" width="60" height="40" rx="8" fill="#f5c26b" stroke="#c07a1e"/>
+    <text x="343" y="58" font-size="22" font-weight="bold">空</text>
+
+    <text x="100" y="500" font-size="24" font-weight="bold">外側死亡交叉</text>
+    <text x="90" y="120" font-size="15" fill="#c0392b" transform="rotate(-45 90 120)">快速%D(7)</text>
+    <text x="180" y="230" font-size="15" fill="#1a3a8f" transform="rotate(-35 180 230)">快速%D(45)</text>
+  </g>
+</svg>

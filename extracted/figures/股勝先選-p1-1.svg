@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 460" font-family="sans-serif">
+  <rect x="0" y="0" width="600" height="460" fill="#ffffff"/>
+  <rect x="4" y="4" width="592" height="452" fill="none" stroke="#8b2e2e" stroke-width="2"/>
+
+  <!-- upper (resistance) channel line -->
+  <line x1="90" y1="415" x2="500" y2="315" stroke="#000000" stroke-width="6" stroke-linecap="round"/>
+  <!-- lower (support) channel line -->
+  <line x1="90" y1="540" x2="540" y2="410" stroke="#000000" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- candlesticks climbing along the lower/mid channel, red = up, black = down -->
+  <!-- candle 1 (red) -->
+  <line x1="140" y1="470" x2="140" y2="500" stroke="#b5121b" stroke-width="2"/>
+  <rect x="132" y="470" width="16" height="30" fill="#b5121b"/>
+  <!-- candle 2 (red, with upper wick) -->
+  <line x1="168" y1="405" x2="168" y2="450" stroke="#b5121b" stroke-width="2"/>
+  <rect x="160" y="425" width="16" height="25" fill="#b5121b"/>
+  <!-- candle 3 (black) -->
+  <line x1="196" y1="415" x2="196" y2="465" stroke="#111111" stroke-width="2"/>
+  <rect x="188" y="415" width="16" height="35" fill="#111111"/>
+  <!-- candle 4 (black, small) -->
+  <line x1="224" y1="430" x2="224" y2="460" stroke="#111111" stroke-width="2"/>
+  <rect x="216" y="430" width="16" height="20" fill="#111111"/>
+  <!-- candle 5 (red, small) -->
+  <line x1="252" y1="405" x2="252" y2="440" stroke="#b5121b" stroke-width="2"/>
+  <rect x="244" y="413" width="16" height="20" fill="#b5121b"/>
+  <!-- candle 6 (red, tall, reaching channel) -->
+  <line x1="280" y1="370" x2="280" y2="415" stroke="#b5121b" stroke-width="2"/>
+  <rect x="272" y="378" width="16" height="35" fill="#b5121b"/>
+
+  <!-- big red candle: the running "body" torso climbing steeply above the channel -->
+  <rect x="325" y="235" width="26" height="90" fill="#b5121b"/>
+  <!-- stick-figure legs (running pose) on the big candle -->
+  <path d="M 325 325 L 300 355 L 310 375" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 351 325 L 375 350 L 388 335" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <!-- stick-figure legs at top connecting to torso -->
+  <path d="M 330 235 L 315 205 L 300 190" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 340 235 L 358 215 L 350 195" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- small red candle: the "head/upper body" figure further up-right, mid-stride -->
+  <rect x="378" y="155" width="22" height="45" fill="#b5121b"/>
+  <path d="M 378 200 L 360 220 L 372 240" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 400 200 L 420 218 L 435 205" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 382 155 L 368 130 L 355 118" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 396 155 L 412 138 L 405 118" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/>
+
+  <text x="300" y="30" text-anchor="middle" font-size="16" fill="#333333">示意圖：強勢股「出軌」沿軌道線上緣加速奔馳（人形示意）</text>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" font-family="sans-serif">
+  <rect width="1000" height="480" fill="#ffffff"/>
+
+  <!-- Left: 三線底收歛 -->
+  <g>
+    <line x1="20" y1="70" x2="440" y2="70" stroke="#999" stroke-width="1"/>
+    <text x="450" y="75" font-size="18">90</text>
+    <line x1="20" y1="170" x2="440" y2="170" stroke="#999" stroke-width="1"/>
+    <text x="450" y="175" font-size="18">70</text>
+    <line x1="20" y1="300" x2="440" y2="300" stroke="#999" stroke-width="1"/>
+    <text x="450" y="305" font-size="18">30</text>
+    <line x1="20" y1="370" x2="440" y2="370" stroke="#999" stroke-width="1"/>
+    <text x="450" y="375" font-size="18">10</text>
+
+    <!-- K(60) red -->
+    <polyline points="30,230 70,260 110,290 140,260 170,300 200,370 230,330 260,320 290,315 320,320 350,300 380,240 410,140" fill="none" stroke="#c0392b" stroke-width="4"/>
+    <!-- K(120) green -->
+    <polyline points="30,280 90,320 150,360 200,395 230,405 260,400 300,390 350,360 400,330 410,320" fill="none" stroke="#2e7d5b" stroke-width="4"/>
+    <!-- K(240) blue -->
+    <polyline points="30,300 90,340 150,375 200,405 230,415 260,410 300,400 350,370 400,340 410,330" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+
+    <text x="290" y="290" font-size="20" fill="#c0392b">K(60)</text>
+    <text x="270" y="380" font-size="20" fill="#2e7d5b">K(120)</text>
+    <text x="270" y="425" font-size="20" fill="#1a3a8f">K(240)</text>
+
+    <text x="130" y="450" font-size="26" font-weight="bold">三線底收歛</text>
+  </g>
+
+  <!-- Right: 三線頂收歛 -->
+  <g transform="translate(520,0)">
+    <line x1="20" y1="70" x2="440" y2="70" stroke="#999" stroke-width="1"/>
+    <text x="450" y="75" font-size="18">90</text>
+    <line x1="20" y1="170" x2="440" y2="170" stroke="#999" stroke-width="1"/>
+    <text x="450" y="175" font-size="18">70</text>
+    <line x1="20" y1="300" x2="440" y2="300" stroke="#999" stroke-width="1"/>
+    <text x="450" y="305" font-size="18">30</text>
+    <line x1="20" y1="370" x2="440" y2="370" stroke="#999" stroke-width="1"/>
+    <text x="450" y="375" font-size="18">10</text>
+
+    <!-- K(60) red: rises steeply to a peak then falls sharply -->
+    <polyline points="30,375 80,330 120,270 160,200 200,140 240,100 270,110 300,150 330,190 360,330 380,350 410,330" fill="none" stroke="#c0392b" stroke-width="4"/>
+    <!-- K(120) green -->
+    <polyline points="30,150 100,120 160,95 220,80 270,75 310,85 340,110 370,220 400,260 420,255" fill="none" stroke="#2e7d5b" stroke-width="4"/>
+    <!-- K(240) blue -->
+    <polyline points="30,120 100,100 160,85 220,72 270,65 310,72 340,95 370,180 400,220 420,215" fill="none" stroke="#1a3a8f" stroke-width="4"/>
+
+    <text x="60" y="410" font-size="20" fill="#c0392b" transform="rotate(-45 60 410)">K(60)</text>
+    <text x="60" y="150" font-size="20" fill="#2e7d5b">K(120)</text>
+    <text x="60" y="105" font-size="20" fill="#1a3a8f">K(240)</text>
+
+    <text x="130" y="450" font-size="26" font-weight="bold">三線頂收歛</text>
+  </g>
+</svg>
