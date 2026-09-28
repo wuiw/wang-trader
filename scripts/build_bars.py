@@ -1,7 +1,7 @@
 """由 tick db 聚合好的日盤 1 分 K（data/tx_day_1min.csv）合成 1/3/5 分 K 並做基本檢查。
 
-來源：../tick-db 的 TimescaleDB `txf_ticks`（TXFR1 連續月），台北時間 = ts(UTC) − 8h，
-日盤 08:45–13:45，13:45 收盤撮合併入 13:44 那根。K 棒時間標籤＝該根開盤時刻。
+來源：data/tx_day_1min.csv 由 scripts/kbars_to_day_csv.py 從 ../tick-db/kbars_1min.csv（TXFR1 連續月，
+檔案時間＝台北時間＋16 小時）換算而來；日盤 08:45–13:44，K 棒時間標籤＝該根開盤時刻。
 """
 
 from pathlib import Path

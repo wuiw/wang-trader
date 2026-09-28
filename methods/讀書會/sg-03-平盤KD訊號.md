@@ -45,6 +45,8 @@ code: src/wangtrader/methods/sg_03_flat_kd.py
 
 ## 4. 回測（2026-09-28，台指期日盤，cost＝0，只列原始版）
 
+> **更正**：以下數字以舊（時區錯誤）資料計算，已作廢；最新結果見 `methods/讀書會回測整理.md`。
+
 `results/params/sg_03_flat_kd_zone_bar.csv`（`scripts/compare_params.py`）：
 
 | 週期 | prev（預設）：筆數／勝率／淨點數／PF／最大回撤 | cross：筆數／勝率／淨點數／PF／最大回撤 |

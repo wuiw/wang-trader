@@ -57,7 +57,7 @@
 ## 3. 最會讓規則失真的參數（不換算時）
 
 1. sg_05 內困 `max_first_range`／`near_extreme_points`（10 點）：訊號幾乎消失。
-2. sg_07 跳空百點 `gap_threshold`（100 點）：311 日中 210 日成立，失去意義。
+2. sg_07 跳空百點 `gap_threshold`（100 點）：311 日中 210 日成立，失去意義（舊〔時區錯誤〕資料的數字，已作廢，待以新資料重算）。
 3. q3_10 `max_risk=40`、q3_07 `shadow_max=3`、q3_03 `giveup_distance=40`、q3_05 `ignore_beyond=40`：原始版訊號數只有縮放版的 1/8～1/10。
 4. q2_04_01 `max_signal_points=15`＋`pullback_stop_max=10`、q2_01 `big_bar_points=15`：訊號整批被濾掉。
 5. q2_05_01／q2_06_01 的極端位置門檻 30～40 點：幾乎天天成立，濾網失效。

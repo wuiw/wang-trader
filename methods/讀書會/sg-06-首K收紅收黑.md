@@ -50,6 +50,8 @@ code: src/wangtrader/methods/sg_06_first_bar_color.py
 
 ## 5. 回測（2026-09-28，台指期日盤 2025-03-14～2026-09-24，311 個交易日，cost＝0）
 
+> **更正**：以下數字以舊（時區錯誤）資料計算，已作廢；最新結果見 `methods/讀書會回測整理.md`。
+
 只列原始版（縮放版要等協調者在 `scripts/point_params.py` 登記點數欄位後才正確）。
 
 **進場方式** `results/params/sg_06_first_bar_color_entry_mode.csv`：

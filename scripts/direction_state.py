@@ -34,7 +34,7 @@ DATA = ROOT / "data"
 OUT = ROOT / "results" / "direction"
 
 HORIZONS = [15, 30, 60, 120, "close"]
-SPLIT = pd.Timestamp("2026-01-01")  # 前半 2025-03～2025-12，後半 2026-01～2026-09
+SPLIT = pd.Timestamp("2026-01-01")  # 前半 2024-05～2025-12，後半 2026-01～2026-09
 DAY_SESSION_MIN = 300  # 日盤 08:45–13:45＝300 分鐘（只用於把「N 日均線」換成根數與大週期根數比）
 
 
@@ -268,7 +268,7 @@ def _daily_to_bars(df, daily, day_state: np.ndarray) -> np.ndarray:
 
 
 def t_cz_05_01(df, tf, daily):
-    """cz-05-01：前一日收盤在年線（日 MA240）上＝+1、下＝−1。資料只有約 311 日，MA240 只在最後約 70 日有值。"""
+    """cz-05-01：前一日收盤在年線（日 MA240）上＝+1、下＝−1。資料 575 日，MA240 約從 2025-05 起才有值（約 335 日）。"""
     return _daily_to_bars(df, daily, _sign_carry((daily["close"] - sma(daily["close"], 240)).to_numpy()))
 
 

@@ -38,6 +38,8 @@ K線收盤越過首根K線高點，呈現無遮蔽，就成為鈍化買訊，中
 
 ## 4. 回測（2026-09-28，台指期日盤，cost＝0）
 
+> **更正**：以下數字以舊（時區錯誤）資料計算，已作廢；最新結果見 `methods/讀書會回測整理.md`。
+
 `results/params/sg_01_rsi_blunt_quick_window_minutes.csv`（`scripts/compare_params.py`）：
 
 | 版本 | 週期 | 10 分：筆數／勝率／淨點數／PF | 15 分：筆數／勝率／淨點數／PF |

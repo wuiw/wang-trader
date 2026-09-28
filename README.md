@@ -19,8 +19,8 @@ src/wangtrader/
   core/              共用核心：bars（K棒欄位）、indicators（sma/rsi/kd/sar）、
                      pivots（峰谷點）、engine（Strategy/Order/run）、exits（出場函式）
   methods/           每個操作方法一個獨立模組，對應 methods/ 下的規格文件
-                     （目前 q2 12、q3 13、gq 24、sg 1，共 50 個）
-scripts/             build_bars.py（建資料）、run_individual.py、run_scaled.py、
+                     （目前 q2 12、q3 13、gq 24、sg 8，共 57 個）
+scripts/             kbars_to_day_csv.py、build_bars.py（建資料）、run_individual.py、run_scaled.py、
                      run_combined.py、point_params.py（點數欄位與參考價位）、
                      compare_params.py（同一方法不同參數值對照）、
                      merge_study_digest.py（讀書會紀錄合併統計）
@@ -46,7 +46,8 @@ tools/               輔助工具（如書頁裁切腳本）
 uv sync                      # 安裝依賴
 uv run pytest -q             # 跑全部測試
 
-# 建立回測資料（需要 ../tick-db 的 TimescaleDB，內含 txf_ticks 表）
+# 建立回測資料：../tick-db/kbars_1min.csv（檔案時間＝台北時間＋16 小時）→ data/tx_day_1min.csv → parquet
+uv run python scripts/kbars_to_day_csv.py
 uv run python scripts/build_bars.py
 
 # 回測
@@ -63,7 +64,10 @@ uv run python scripts/compare_params.py --method q3_05_break_three_high_low --pa
 - `compare_params.py` 以建構子參數注入待比較的值，不改方法模組預設值；用來以回測判定書中模糊規則或
   讀書會勘誤／補充（判定結果記在各方法文件 §12）。只想比較某個參數時用它，不必重跑全體。
 - 縮放版的點數欄位與參考價位登記在 `scripts/point_params.py`（`POINT_PARAMS`、`REF_PRICE`：
-  q2＝8500、q3＝10000、gq＝7000、sg＝17000）；新方法要先登記點數欄位，縮放版結果才正確。
+  q2＝8500、q3＝10000、gq＝7000；sg 各方法依規則提出年代另訂，見 `REF_PRICE_BY_METHOD`）；
+  新方法要先登記點數欄位，縮放版結果才正確。
+- 最新回測結果整理在三份文件：`methods/奇績2-3回測整理.md`（q2／q3）、`methods/股技期招回測整理.md`（gq）、
+  `methods/讀書會回測整理.md`（sg）。資料期間 2024-05-09～2026-09-24，575 個交易日。
 
 ## 回測假設
 
@@ -71,7 +75,7 @@ uv run python scripts/compare_params.py --method q3_05_break_three_high_low --pa
 - 僅回測**日盤** 08:45–13:45（台指期 TXFR1 連續月）。
 - 以**收盤價**判斷訊號、**收盤成交**；停損則於**盤中觸價**即觸發。
 - 書中點數門檻（20 點停損、40 點極端位置等）是在台指期約 8,500～10,000 點的年代訂的，
-  本專案回測期間約 22,000→48,000 點，`run_scaled.py` 提供依價位縮放的對照版本。
+  本專案回測期間約 20,700→48,100 點，`run_scaled.py` 提供依價位縮放的對照版本。
 - 預設值一律取書中（或讀書會原文）數字，不為績效調整；有爭議的規則做成參數，以 `compare_params.py` 回測後在文件記錄結論。
 - 每個方法都是獨立模組、不寫死 K 線週期，見 `CODING_SPEC.md`。
 
@@ -84,14 +88,14 @@ uv run python scripts/compare_params.py --method q3_05_break_three_high_low --pa
 | gq | 《股技期招》 | `methods/股技期招/`（24 個＋共用出場文件） | 已完成 |
 | cz | 《操作進行曲》 | `methods/操作進行曲/`（9 個＋共用出場文件） | 尚未撰寫 |
 | gs | 《股勝先選》 | `methods/股勝先選/`（12 個） | 尚未撰寫 |
-| sg | 讀書會書外方法 | `methods/讀書會/` | sg-01 已完成；sg-02～sg-08 進行中 |
+| sg | 讀書會書外方法 | `methods/讀書會/`（8 個） | 已完成 |
 
 **讀書會書外方法（sg-*）**：讀書會（學員整理、助教／作者說明）提出、書中沒有的規則，獨立成方法，
 不併入原書方法模組。可信度低於書中原文，文件會標明來源類型與可信度。寫程式與回測規範見
 `methods/讀書會/SG_SPEC.md`（在 `CODING_SPEC.md` 之上另加的規定）。
 
-- sg-01 RSI 鈍化簡化訊號（由 q2-06-04 衍生）：已完成模組、測試、文件。
-- sg-02～sg-08（逆襲線、平盤KD、凹洞、內困、首K收紅收黑、跳空百點、擴量）：進行中。
+- sg-01～sg-08（RSI 鈍化簡化訊號〔由 q2-06-04 衍生〕、逆襲線、平盤KD、凹洞、內困、首K收紅收黑、跳空百點、擴量）：
+  模組、測試、文件皆已完成；回測結果見 `methods/讀書會回測整理.md`（點數換算到 20,000 點）。
 
 **讀書會補充規則的回測判定**（2026-09-28，詳見各文件 §12）：
 
@@ -110,7 +114,7 @@ uv run python scripts/compare_params.py --method q3_05_break_three_high_low --pa
 ## 目前狀態
 
 - 五本書的方法規格文件皆已整理完成；q2、q3、gq 的程式模組與測試已完成，cz、gs 尚未寫程式。
-- 讀書會書外方法 sg-01 已完成，sg-02～sg-08 進行中。
+- 讀書會書外方法 sg-01～sg-08 已完成（模組、測試、文件）；回測整理見 `methods/讀書會回測整理.md`。
 - 待處理的缺頁／待補拍清單見 `methods/問題彙整.md`。
 
 ## 相關文件
