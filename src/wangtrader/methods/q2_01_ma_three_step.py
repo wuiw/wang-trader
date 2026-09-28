@@ -34,8 +34,11 @@
       改用參數較小的 MA(ma_fast_period=10)；收盤突破/跌破所用均線即出場。
     "range"（6.5）：達 profit_target 後取最近 range_bars(15) 根K線高/低點供隔一根K線作停利參考，
       逐根重新計算；不可比原始停損更不利；觸及＝影線超過停利點 range_breach_points(1) 點即出場。
+      區間預設以分鐘計（range_minutes=15，書中以 1 分K 描述「15 根」＝15 分鐘），取最近
+      range_minutes 交易分鐘內的K線；range_minutes=None 或 time 非時間戳時退回 range_bars 根。
     "fixed"（6.6）：窄幅盤整適用，達 fixed_exit_points(10) 點固定獲利即出場，不用移動停利。
-  時間停損（time_stop_bars，預設關閉，p.22 書中為60根／約1小時）：持倉逾此根數仍無明顯獲利，出場。
+  時間停損（time_stop_bars／time_stop_minutes，預設皆關閉，p.22 書中為60根／約1小時）：持倉逾此根數
+  （或分鐘，兩者皆設時以分鐘為準）仍無明顯獲利，出場。
 
 過濾（p.18-19, 23-25）：
   F1 訊號K線漲跌幅 ≥ big_bar_points(15) → 忽略。
@@ -141,6 +144,29 @@ def _group_by_confirm(pivots: list[_Pivot]) -> dict[int, list[_Pivot]]:
     return out
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
 def _digit_stop(side: Side, close_price: float, min_offset: float, integer_points: float) -> float:
     """個位數停損公式（p.13-14）：多＝收盤−(10+個位數)；空＝收盤+(20−個位數)（非鏡像，p.14原文明確列出）；
     整數價位（個位數0）兩方向皆固定 integer_points 點。"""
@@ -172,11 +198,13 @@ class Params:
     trail_breach_points: float = 1.0  # ladder：觸及＝盤中跌破停利線達此點數（p.31「超過1點」）
     ma_fast_period: int = 10  # ma：獲利擴大後改用的較小均線週期（p.42，MA10）
     ma_fast_arm_profit: float = 50.0  # ma：獲利達此點數後由 MA(ma_period) 切換為 MA(ma_fast_period)（p.42）
-    range_bars: int = 15  # range：區間高低點停利所取的K線根數（p.46-49，預設15）
+    range_bars: int = 15  # range：區間高低點停利所取的K線根數（p.46-49，預設15）；range_minutes=None 時使用
+    range_minutes: float | None = 15.0  # range：區間改以分鐘計（書中 1 分K「15 根」＝15 分鐘）；None 用 range_bars
     range_breach_points: float = 1.0  # range：觸及＝影線超過停利點此點數（p.47「超過1點」）
     fixed_exit_points: float = 10.0  # fixed：窄幅盤整固定點數出場（p.28，書中舉例10點）
     breakeven_arm_points: float | None = 15.0  # 求不賠：獲利曾達此點數後回到進場價即出場，優先於 exit_mode（p.32-33, 6.7）
     time_stop_bars: int | None = None  # 持倉逾此根數無明顯獲利，考慮離場（p.22）；門檻未量化，預設關閉
+    time_stop_minutes: float | None = None  # 同上改以分鐘計（書中約1小時＝60），設定時優先於 time_stop_bars；預設關閉
     time_stop_min_profit: float = 0.0  # 搭配 time_stop_bars：獲利需 < 此值才觸發
 
 
@@ -192,6 +220,7 @@ class MAThreeStep(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         df["ma"] = sma(df["close"], self.p.ma_period)
         df["ma_fast"] = sma(df["close"], self.p.ma_fast_period)
         s = sar(df)
@@ -327,7 +356,12 @@ class MAThreeStep(Strategy):
         if pos is None or ctx.i <= pos.entry_i or pos.max_profit() < p.profit_target:
             return None
         long = pos.side == Side.LONG
-        lo_i = max(pos.entry_i, i - p.range_bars)
+        if _elapsed(df, i, i, p.range_minutes, None)[1] is not None:
+            lo_i = i  # 分鐘版：取距本根 range_minutes 交易分鐘以內的K線（不早於進場K線）
+            while lo_i > pos.entry_i and _elapsed(df, lo_i - 1, i, p.range_minutes, None)[0] <= p.range_minutes:
+                lo_i -= 1
+        else:
+            lo_i = max(pos.entry_i, i - p.range_bars)
         window = df.iloc[lo_i:i]
         if window.empty:
             return None
@@ -351,9 +385,12 @@ class MAThreeStep(Strategy):
 
     def _time_stop(self, ctx: Context) -> Order | None:
         pos, p = ctx.pos, self.p
-        if pos is None or p.time_stop_bars is None:
+        if pos is None or (p.time_stop_bars is None and p.time_stop_minutes is None):
             return None
-        if ctx.i - pos.entry_i >= p.time_stop_bars and pos.profit(ctx.bar()["close"]) < p.time_stop_min_profit:
+        held, lim = _elapsed(ctx.df, pos.entry_i, ctx.i, p.time_stop_minutes, p.time_stop_bars)
+        if lim is None:
+            return None
+        if held >= lim and pos.profit(ctx.bar()["close"]) < p.time_stop_min_profit:
             return Order.exit("持倉過久出場")
         return None
 

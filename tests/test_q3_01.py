@@ -152,3 +152,47 @@ def test_opposite_signal_invading_prior_close_is_ignored():
     res = run(DoubleRedBlack(exit_mode="none"), bars)
     assert [s.side for s in res.signals] == [Side.LONG]
     assert res.trades[0].reason_out == "收盤平倉"
+
+
+def _far_bottom_rows():
+    return [
+        (10000, 10002, 9985, 9988),
+        (9988, 9990, 9960, 9962),
+        (9962, 9975, 9950, 9970),   # A：當下最低、紅K
+        (9970, 9999, 9968, 9998),   # B：距極端 48 點 → 補進場（限價 9970）
+        (9998, 10000, 9985, 9990),  # 第 1 根：未拉回
+        (9990, 9992, 9968, 9975),   # 第 2 根：拉回到 9970
+        (9975, 10010, 9974, 10005),
+    ]
+
+
+def test_max_wait_minutes_converts_to_bars_by_bar_interval():
+    """max_wait_minutes：依K線時間差換成根數；5 分K 下 5 分鐘＝1 根（拉回在第 2 根，已失效），
+    10 分鐘＝2 根（成交）；1 分K 下 2 分鐘＝2 根（成交）。"""
+    bars5 = make_bars(_far_bottom_rows(), prev_day=PREV)
+    assert run(DoubleRedBlack(exit_mode="none", max_wait_minutes=5), bars5).trades == []
+    assert run(DoubleRedBlack(exit_mode="none", max_wait_minutes=10), bars5).trades[0].entry_price == 9970
+    bars1 = make_bars(_far_bottom_rows(), prev_day=PREV, freq="1min")
+    assert run(DoubleRedBlack(exit_mode="none", max_wait_minutes=1), bars1).trades == []
+    assert run(DoubleRedBlack(exit_mode="none", max_wait_minutes=2), bars1).trades[0].entry_price == 9970
+
+
+def test_max_wait_minutes_none_keeps_bar_count():
+    """預設 max_wait_minutes=None：沿用 max_wait 根數（預設行為不變）。"""
+    bars = make_bars(_far_bottom_rows(), prev_day=PREV)
+    assert run(DoubleRedBlack(exit_mode="none", max_wait=1), bars).trades == []
+    assert run(DoubleRedBlack(exit_mode="none", max_wait=2), bars).trades[0].entry_price == 9970
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_01_double_red_black import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10

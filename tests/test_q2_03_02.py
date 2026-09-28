@@ -156,3 +156,31 @@ def test_short_stop_formula_matches_book_examples():
     assert _digit_stop(Side.SHORT, 8636, 10.0, 20.0) == 8650
     assert _digit_stop(Side.SHORT, 7700, 10.0, 20.0) == 7720  # 整數價位固定20點
     assert _digit_stop(Side.LONG, 7905, 10.0, 20.0) == 7890  # 多方公式不變（p.13）
+
+
+def _timed(closes, minutes_per_bar):
+    return pd.DataFrame({"close": closes, "trade_min": [float(k * minutes_per_bar) for k in range(len(closes))]})
+
+
+def test_time_stop_flat_points_default_zero_keeps_exact_flat_only():
+    """p.119 時間停損的「無明顯輸贏」：預設 time_stop_flat_points=0（僅剛好平盤），放寬後 ±N 點內皆算。"""
+    from wangtrader.core import Context, Position
+
+    df = _timed([100.0] * 5 + [103.0], 1)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=103.0)
+    ctx = Context(i=5, df=df, pos=pos, trades=[], stopped=None)
+    assert PVTRSISignal(time_stop_bars=5)._time_stop(ctx) is None  # 獲利3點不算平手
+    order = PVTRSISignal(time_stop_bars=5, time_stop_flat_points=8.0)._time_stop(ctx)
+    assert order is not None and order.reason == "持倉過久平手出場"
+
+
+def test_time_stop_minutes_uses_trade_minutes():
+    """time_stop_minutes（書中約1小時）：5 分K 12 根＝60 分鐘才觸發；預設關閉。"""
+    from wangtrader.core import Context, Position
+
+    df = _timed([100.0] * 13, 5)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=100.0)
+    strat = PVTRSISignal(time_stop_minutes=60.0)
+    assert strat._time_stop(Context(i=11, df=df, pos=pos, trades=[], stopped=None)) is None
+    assert strat._time_stop(Context(i=12, df=df, pos=pos, trades=[], stopped=None)) is not None
+    assert PVTRSISignal()._time_stop(Context(i=12, df=df, pos=pos, trades=[], stopped=None)) is None

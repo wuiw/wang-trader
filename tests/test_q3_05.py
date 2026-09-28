@@ -180,3 +180,17 @@ def test_stop_without_15pts_reverses_on_new_extreme_close():
     assert rev.side == Side.LONG and rev.reason == "停損反手" and rev.stop == 10035
     assert res.trades[0].reason_out == "停損" and res.trades[0].exit_price == 10051
     assert res.trades[1].side == Side.LONG and res.trades[1].entry_price == 10055
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_05_break_three_high_low import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10

@@ -250,3 +250,36 @@ def test_breakeven_exit_after_profit_returns_to_entry():
     res = run(MAThreeStep(ma_period=3, pivot_level=1, exit_mode="none", breakeven_arm_points=15.0), bars)
     t = res.trades[0]
     assert t.reason_out == "折返停利" and t.exit_price == 112
+
+
+def _timed(df: pd.DataFrame, minutes_per_bar: int) -> pd.DataFrame:
+    df = df.copy()
+    df["trade_min"] = [float(k * minutes_per_bar) for k in range(len(df))]
+    return df
+
+
+def test_range_minutes_window_follows_clock_not_bar_count():
+    """range_minutes（預設15，書中 1 分K 15 根＝15 分鐘）：5 分K 時只取最近 15 分鐘（3 根）；None 退回 range_bars。"""
+    df = _timed(pd.DataFrame({
+        "low": [99.0, 95.0, 99.0, 99.0, 98.0, 97.0],
+        "high": [101.0, 130.0, 126.0, 121.0, 118.0, 118.0],
+    }), 5)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=130.0)
+    ctx = Context(i=5, df=df, pos=pos, trades=[], stopped=None)
+    # 分鐘版：i-3..i-1（10、15、20 分鐘前以內）低點最低 98 → 觸發價 97，本根低點 97 觸及
+    order = MAThreeStep(profit_target=20.0, range_minutes=15.0)._range_exit(ctx)
+    assert order is not None and order.reason == "區間高低點停利"
+    # 根數版（range_bars=15）：區間含第1根低點95 → 觸發價94，不觸及
+    assert MAThreeStep(profit_target=20.0, range_minutes=None)._range_exit(ctx) is None
+
+
+def test_time_stop_minutes_overrides_bars():
+    """time_stop_minutes：持倉逾此分鐘仍無獲利即出場（書中約1小時）；5 分K 12 根＝60 分鐘。"""
+    df = _timed(pd.DataFrame({"close": [99.0] * 13}), 5)  # 小賠（獲利 < time_stop_min_profit=0）
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=100.0)
+    strat = MAThreeStep(time_stop_minutes=60.0)
+    assert strat._time_stop(Context(i=11, df=df, pos=pos, trades=[], stopped=None)) is None  # 55 分鐘
+    assert strat._time_stop(Context(i=12, df=df, pos=pos, trades=[], stopped=None)) is not None  # 60 分鐘
+    # 根數版照舊；兩者皆未設時關閉
+    assert MAThreeStep(time_stop_bars=12)._time_stop(Context(i=12, df=df, pos=pos, trades=[], stopped=None)) is not None
+    assert MAThreeStep()._time_stop(Context(i=12, df=df, pos=pos, trades=[], stopped=None)) is None

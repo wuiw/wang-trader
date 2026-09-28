@@ -288,3 +288,22 @@ def test_exit_fixed_pct():
     assert sig.meta["arm_target"] == 18.0
     t = res.trades[0]
     assert t.reason_out == "固定比例停利(100%)" and t.exit_i == 7 and t.exit_price == 148
+
+
+def test_c5_max_pullback_days_counts_sessions():
+    """C5 交易日版：峰位確認（第 4 根）到突破（第 7 根）跨 3 個交易日；> max_pullback_days 即取消。"""
+    rows = [
+        (100, 101, 99, 100),
+        (100, 103, 99, 102),
+        (102, 105, 101, 104),
+        (104, 111, 103, 110),
+        (109, 110, 104, 105),  # 峰位確立，拉回開始
+        (105, 108, 104, 106),
+        (106, 108, 103, 105),
+        (105, 113, 103, 112),  # 收盤突破峰位 111
+    ]
+    bars = make_bars(rows, freq="1D")  # 每根一個交易日
+    kw = dict(ma_period=3, rsi_period=1, exit_mode="hold", max_pullback_bars=0)
+    assert run(OptionSwingBreakout(max_pullback_days=2, **kw), bars).signals == []
+    res = run(OptionSwingBreakout(max_pullback_days=3, **kw), bars)
+    assert res.signals[0].side == Side.LONG

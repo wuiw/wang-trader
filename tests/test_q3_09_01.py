@@ -145,3 +145,40 @@ def test_large_bar_midpoint_stop_capped_at_20_points():
     res_wait = run(MaDragonfly(use_five_reversal=False), bars)
     sig_w = res_wait.signals[0]
     assert sig_w.reason == "均線蜻蜓點水買訊(補進場)" and sig_w.stop == 10178 and sig_w.price == 10198
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_09_01_ma_dragonfly import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10
+
+
+def test_f1_min_trend_minutes():
+    """F1 分鐘版：均線轉折到 A 棒 6 根，5 分K＝30 分鐘；須「超過」門檻，設定時取代根數判斷。"""
+    closes = _rising_prefix() + [10180, 10210]
+    bars = make_bars(_rows_from_closes(closes), prev_day=PREV)
+    assert run(MaDragonfly(min_trend_minutes=30, use_five_reversal=False), bars).signals == []
+    res = run(MaDragonfly(min_trend_minutes=29, min_trend_bars=100, use_five_reversal=False), bars)
+    assert res.signals[0].side == Side.LONG
+    bars1 = make_bars(_rows_from_closes(closes), prev_day=PREV, freq="1min")
+    assert run(MaDragonfly(min_trend_minutes=15, use_five_reversal=False), bars1).signals == []
+
+
+def test_f2_region_min_minutes():
+    """F2 分鐘版：兩次跌破間隔 12 根，5 分K＝60 分鐘。"""
+    base = _rising_prefix()
+    after1 = [10230 + 20 * k for k in range(10)]
+    dip2, rec2 = after1[-1] - 100, after1[-1] - 100 + 30
+    closes = base + [10180, 10210] + after1 + [dip2, rec2]
+    df = prepare(make_bars(_rows_from_closes(closes), prev_day=PREV))
+    kw = dict(region_min_bars=0, min_trend_bars=0, min_turn_dist=0, use_five_reversal=False)
+    assert (MaDragonfly(region_min_minutes=61, **kw).prepare(df)["sig_side"] != 0).sum() == 1
+    assert (MaDragonfly(region_min_minutes=60, **kw).prepare(df)["sig_side"] != 0).sum() == 2

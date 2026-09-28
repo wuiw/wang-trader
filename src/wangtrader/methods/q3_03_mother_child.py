@@ -11,7 +11,7 @@
     訊號K最低點不低於母K最低點（書中僅明確空方版本 C4，多方鏡像未見原文條列，
     以 mirror_low_bound 開關標示為推論，預設開啟）。
 進場（p.70, 73）：訊號K距母K極端點 ≤ stop_points → 收盤直接進場；距離較大 → far_entry_mode：
-  "pullback" 補進場等待拉回（限價，max_wait 根內未成交即失效，p.73）、"direct" 直接進場但停損固定
+  "pullback" 補進場等待拉回（限價，max_wait 根（或 max_wait_minutes 分鐘）內未成交即失效，p.73）、"direct" 直接進場但停損固定
   stop_points、"ignore" 忽略。距離 ≥ giveup_distance（40 點，p.73）時原則上放生不操作，直接忽略
   （即使書中允許執意進場也僅能等拉回，不可直接以進場價±20點方式進場，本模組簡化為一律忽略）。
 停損（p.70）：設在母K極端點（頂母子＝母K最高點，穿越 stop_tick 即出場），但距進場價最多
@@ -48,12 +48,37 @@ from wangtrader.core.indicators import sar, sma
 METHOD_ID = "q3-03"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     stop_points: float = 20.0  # 單筆最大風險（p.70）
     stop_tick: float = 1.0  # 母K極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
     far_entry_mode: str = "pullback"  # 距離 > stop_points 時："pullback" | "direct" | "ignore"（p.70, 73）
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，沿用第一章慣例）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     giveup_distance: float = 40.0  # F6：距母K極端點 ≥ 此值原則上放生不操作（p.73）
     extreme_range: float = 30.0  # p.68-69
     extreme_from_prev_close: float = 40.0  # p.68-69
@@ -158,6 +183,6 @@ class MotherChild(Strategy):
             return [Order.enter(side, stop=self._stop(side, close, ext), reason=name + "(直接進場)", extreme=ext)]
         if p.far_entry_mode == "pullback":
             limit = ext + p.stop_points * int(side)
-            return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=self._stop(side, limit, ext),
+            return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=self._stop(side, limit, ext),
                                       reason=name + "(補進場)", extreme=ext)]
         return None  # far_entry_mode == "ignore"

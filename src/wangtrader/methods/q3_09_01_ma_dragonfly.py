@@ -25,9 +25,11 @@
   F1 均線本波方向持續 <= min_trend_bars（預設3）根 -> 不宜操作（p.199）；此判斷已內建「均線須
      已朝方向運行一段時間，不能是均線剛轉折」（p.197，圖9-8）：bars_since_turn 是以「均線斜率翻轉
      的那一根」為起點計算，即使表面根數看似足夠，只要A棒（跌破/突破的那根）離均線真正翻揚的起點
-     太近，仍會被本濾網擋下，不需另立規則。
+     太近，仍會被本濾網擋下，不需另立規則。可選 min_trend_minutes（預設 None）改以K線時間戳計算
+     經過分鐘（均線轉折那根到A棒），設定時取代根數判斷。
   F2 距離上一次跌破/突破（含未成立的蜻蜓點水）不足 region_min_bars（預設10）根 -> 非本波段
-     第一次回測，忽略（p.199）。
+     第一次回測，忽略（p.199）。可選 region_min_minutes（預設 None）改以經過分鐘計。
+     原文兩者都只寫根數、未寫時間，故預設維持根數（見規格文件 §12）。
   F3/C5 峰谷點距均線轉折點 < min_turn_dist（預設20）-> 忽略（p.192-193, 199, 203-204）。
   F4 當日均線方向反覆翻轉次數超過 max_trend_flips_per_session -> 視為當日均線不具支撐/壓力
      效果，當日忽略所有訊號（p.201-202）。本模組以「當日MA斜率翻轉次數」作為可量化代理指標，
@@ -61,6 +63,30 @@ from wangtrader.core.indicators import sma
 METHOD_ID = "q3-09-01"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     ma_period: int = 10  # MA10（p.189）
@@ -68,9 +94,12 @@ class Params:
     large_bar_threshold: float = 30.0  # p.198
     large_bar_mode: str = "wait"  # "wait" | "midpoint"
     max_wait: int = 10  # 補進場等待根數（書中未載明確切根數，沿用慣例，待確認）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     min_trend_bars: int = 3  # F1（p.199）
     min_turn_dist: float = 20.0  # F3/C5（p.192-193, 199, 203-204）
     region_min_bars: int = 10  # F2（p.199）
+    min_trend_minutes: float | None = None  # F1 分鐘版（None＝用 min_trend_bars；原文只寫根數，5分K 3根≈15分鐘）
+    region_min_minutes: float | None = None  # F2 分鐘版（None＝用 region_min_bars；原文只寫根數，5分K 10根≈50分鐘）
     max_trend_flips_per_session: int | None = None  # F4（推論代理指標，預設關閉，p.201-202）
     skip_on_opposite_extreme: bool = True  # F5（p.200-201）
     extreme_range: float = 30.0
@@ -100,6 +129,14 @@ class MaDragonfly(Strategy):
         low = df["low"].to_numpy(float)
         ma = df["ma"].to_numpy(float)
         sess = df["session"].to_numpy()
+        times = df["time"]
+        is_ts = pd.api.types.is_datetime64_any_dtype(times)
+
+        def minutes(a: int, b: int) -> float | None:
+            """第 a 根到第 b 根經過的分鐘數；time 欄不是時間戳時回傳 None（退回根數）。"""
+            if not is_ts:
+                return None
+            return (times.iat[b] - times.iat[a]).total_seconds() / 60.0
 
         sig_side = [0] * n
         signal_ext = [float("nan")] * n
@@ -153,7 +190,16 @@ class MaDragonfly(Strategy):
                     bars_since_turn = a - turn_i
                     dist = (prior_peak - turn_price) if trend == 1 else (turn_price - prior_peak)
                     gap_ok = (a - last_breach_i) >= p.region_min_bars
-                    if bars_since_turn > p.min_trend_bars and dist >= p.min_turn_dist and gap_ok:
+                    if p.region_min_minutes is not None and last_breach_i >= 0:
+                        m = minutes(last_breach_i, a)
+                        if m is not None:
+                            gap_ok = m >= p.region_min_minutes
+                    trend_ok = bars_since_turn > p.min_trend_bars
+                    if p.min_trend_minutes is not None and turn_i >= 0:
+                        m = minutes(turn_i, a)
+                        if m is not None:
+                            trend_ok = m > p.min_trend_minutes
+                    if trend_ok and dist >= p.min_turn_dist and gap_ok:
                         # F5：逆向極端訊號（如頂雙黑/底雙紅）與 A 棒（跌破/突破均線的那根K線）
                         # 同時成立時，逆向優先，本順向訊號忽略（p.200-201，圖9-11：AB形成頂雙黑，
                         # B同時跌破均線，隔根C收回均線的蜻蜓點水買訊須忽略）。
@@ -205,7 +251,7 @@ class MaDragonfly(Strategy):
             return [Order.enter(side, stop=stop, reason=name + "(大K線)")]
         # 大K線補進場：等折返到「極端點 ± stop_points」，停損設在訊號K極端點（p.198）
         limit = ext + p.stop_points * int(side)
-        return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=ext, reason=name + "(補進場)")]
+        return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=ext, reason=name + "(補進場)")]
 
 
 def _extreme_reversal_side(

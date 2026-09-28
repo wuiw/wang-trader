@@ -195,3 +195,17 @@ def test_f4_carryover_measures_from_session_low_for_long():
         (10048, 10110, 10046, 10105),  # B 收盤距開盤後最低點 67 > 60 -> 忽略
     ]
     assert run(PigYang(ma_period=3), _two_days(prev, day_far)).signals == []
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_08_02_pig_yang import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10

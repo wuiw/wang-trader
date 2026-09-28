@@ -74,7 +74,7 @@ def test_f3_drift_from_breakout_is_filtered():
 
 def test_f3_bars_from_breakout_is_filtered():
     bars = make_bars(LONG_BASE)
-    res = run(PVTNType(max_bars_from_breakout=3, **KW), bars)
+    res = run(PVTNType(max_bars_from_breakout=3, max_minutes_from_breakout=None, **KW), bars)
     assert res.signals == []
 
 
@@ -259,3 +259,23 @@ def test_f2_exception_when_point2_is_within_threshold_at_confirmation():
 
     st["LONG"]["c2"] = _Pivot(index=5, confirm=6, price=125.0, kind="trough")  # (2)距階梯25 也超過門檻 → 無例外
     assert strat._passes_filters(pd.DataFrame({"close": [140.0]}), 0, c0, 140.0, st, Side.LONG) is False
+
+
+def test_f3_minutes_from_breakout_uses_clock():
+    """F3 拖延（p.110 原文「60分鐘」）：max_minutes_from_breakout 以交易分鐘計，突破到訊號相隔 6 根K線；
+    5 分K＝30 分鐘 > 20 → 忽略，1 分K＝6 分鐘 → 成立。"""
+    kw = dict(max_minutes_from_breakout=20.0, **KW)
+    assert run(PVTNType(**kw), make_bars(LONG_BASE, freq="5min")).signals == []
+    assert len(run(PVTNType(**kw), make_bars(LONG_BASE, freq="1min")).signals) == 1
+
+
+def test_trade_minutes_skip_overnight_gap():
+    """交易分鐘：跨交易日的第一根只計一根K線長，不含休市時間。"""
+    from wangtrader.methods.q2_03_01_pvt_n_type import _trade_minutes
+
+    df = prepare(make_bars([(100, 101, 99, 100)] * 3, prev_day=(100, 101, 99, 100)))
+    df.loc[:, "time"] = pd.to_datetime(["2024-01-01 13:40", "2024-01-02 08:45", "2024-01-02 08:50", "2024-01-02 08:55"])
+    assert _trade_minutes(df).tolist() == [0.0, 0.0, 5.0, 10.0]
+    df2 = prepare(make_bars([(100, 101, 99, 100)] * 4))
+    df2 = pd.concat([df2, df2.assign(time=df2["time"] + pd.Timedelta(days=1), session=1)], ignore_index=True)
+    assert _trade_minutes(df2).tolist() == [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0]

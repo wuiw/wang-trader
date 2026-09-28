@@ -174,3 +174,32 @@ def test_breakeven_exit_after_profit_returns_to_entry():
     res = run(SARC(exit_mode="none", breakeven_exit=True, **KW), bars)
     t = res.trades[0]
     assert t.reason_out == "折返停利" and t.exit_price == 101
+
+
+def _timed(df: pd.DataFrame, minutes_per_bar: int) -> pd.DataFrame:
+    df = df.copy()
+    df["trade_min"] = [float(k * minutes_per_bar) for k in range(len(df))]
+    return df
+
+
+def test_range_minutes_window_follows_clock_not_bar_count():
+    """range_minutes（預設20，書中 1 分K 20 根＝20 分鐘）：5 分K 時只取最近 20 分鐘（4 根）；None 退回 range_bars。"""
+    df = _timed(pd.DataFrame({
+        "low": [99.0, 95.0, 99.0, 99.0, 99.0, 98.0, 97.0],
+        "high": [101.0, 130.0, 126.0, 121.0, 120.0, 118.0, 118.0],
+    }), 5)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=130.0)
+    ctx = Context(i=6, df=df, pos=pos, trades=[], stopped=None)
+    order = SARC(profit_target=20.0, range_minutes=20.0)._range_exit(ctx)  # 區間 i-4..i-1 最低98 → 觸發97
+    assert order is not None and order.reason == "區間高低點停利"
+    assert SARC(profit_target=20.0, range_minutes=None)._range_exit(ctx) is None  # 20 根含低點95 → 觸發94
+
+
+def test_time_stop_minutes_overrides_bars():
+    """time_stop_minutes：持倉逾此分鐘仍無獲利即出場（書中約30-60分鐘）。"""
+    df = _timed(pd.DataFrame({"close": [99.0] * 7}), 5)
+    pos = Position(Side.LONG, entry_i=0, entry_price=100.0, stop=90.0, best=100.0)
+    strat = SARC(time_stop_minutes=30.0)
+    assert strat._time_stop(Context(i=5, df=df, pos=pos, trades=[], stopped=None)) is None  # 25 分鐘
+    assert strat._time_stop(Context(i=6, df=df, pos=pos, trades=[], stopped=None)) is not None  # 30 分鐘
+    assert SARC()._time_stop(Context(i=6, df=df, pos=pos, trades=[], stopped=None)) is None  # 預設關閉

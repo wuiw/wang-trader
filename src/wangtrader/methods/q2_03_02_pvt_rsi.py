@@ -32,7 +32,9 @@ PVT 通道／趨勢階梯（p.95-98，沿用 q2-03-01 之建構規則）：本�
   F3「過一高」先於 RSI 穿越50 → 暫不可進場（已內建於 C4 判斷，p.113）。
   F4 訊號確認前價格已偏離最初突破位置（被突破的階梯價位）過遠：書中僅舉例「約90點」，未給精確門檻，
      本模組提供 max_drift_from_breakout 參數（預設 None 關閉），避免自行發明精確數字。
-出場（p.119，advisory）：持倉逾 time_stop_bars 根仍無明顯輸贏，考慮平手離場；門檻未量化，預設關閉。
+出場（p.119，advisory）：持倉逾 time_stop_bars 根（或 time_stop_minutes 交易分鐘，書中約1小時；兩者皆設時
+  以分鐘為準）仍無明顯輸贏（|獲利| <= time_stop_flat_points，預設 0＝剛好平盤），考慮平手離場；
+  門檻未量化，預設關閉。
 
 不區隔週期：無任何 K 線週期常數；所有門檻皆為點數／根數參數。
 """
@@ -137,6 +139,29 @@ def _digit_stop(side: Side, close_price: float, min_offset: float, integer_point
     return close_price - pts if side == Side.LONG else close_price + pts
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
 @dataclass
 class Params:
     pivot_level: int = 2
@@ -154,6 +179,8 @@ class Params:
     ladder_exit: bool = True  # 已獲利部位可用 PVT 階梯停利（p.122, 6.2）
     breakeven_arm_points: float = 15.0  # 保本出場：獲利曾達此點數後折返回進場價即出場（p.118-119, 6.3）
     time_stop_bars: int | None = None  # 持倉逾此根數無明顯輸贏，考慮平手離場（p.119）；門檻未量化，預設關閉
+    time_stop_minutes: float | None = None  # 同上改以分鐘計（書中約1小時＝60），設定時優先於 time_stop_bars；預設關閉
+    time_stop_flat_points: float = 0.0  # 「無明顯輸贏」＝|獲利| <= 此點數（原寫死為剛好平盤；p.119 例為上下8點內）
 
 
 class PVTRSISignal(Strategy):
@@ -167,6 +194,7 @@ class PVTRSISignal(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         df["rsi"] = rsi(df["close"], self.p.rsi_period)
         peaks, troughs = _pivots_by_session(df, self.p.pivot_level)
         self._peaks_by_confirm = _group_by_confirm(peaks)
@@ -324,9 +352,12 @@ class PVTRSISignal(Strategy):
 
     def _time_stop(self, ctx: Context) -> Order | None:
         pos, p = ctx.pos, self.p
-        if pos is None or p.time_stop_bars is None:
+        if pos is None or (p.time_stop_bars is None and p.time_stop_minutes is None):
             return None
-        if ctx.i - pos.entry_i >= p.time_stop_bars and abs(pos.profit(ctx.bar()["close"])) < 1e-9:
+        held, lim = _elapsed(ctx.df, pos.entry_i, ctx.i, p.time_stop_minutes, p.time_stop_bars)
+        if lim is None:
+            return None
+        if held >= lim and abs(pos.profit(ctx.bar()["close"])) <= p.time_stop_flat_points + 1e-9:
             return Order.exit("持倉過久平手出場")
         return None
 

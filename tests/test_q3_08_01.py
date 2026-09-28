@@ -260,3 +260,58 @@ def test_retrace_exit_gives_back_fixed_points_from_peak():
                           reverse_on_opposite_extreme=False), bars)
     t = res.trades[0]
     assert t.reason_out == "折返停利" and t.exit_price == 10063
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_08_01_ma_breakout import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10
+
+
+def _ma_touch_rows(untouched: int):
+    """進場（i=8，10052）後連續 untouched 根未觸 MA3，接著一根觸及均線。"""
+    rows = [
+        (10000, 10002, 9988, 9990),
+        (9990, 9992, 9980, 9985),
+        (9985, 10008, 9983, 10005),
+        (10005, 10040, 10003, 10018),
+        (10018, 10050, 10015, 10028),
+        (10028, 10045, 10020, 10035),
+        (10035, 10040, 10025, 10036),
+        (10046, 10058, 10040, 10052),  # 進場 10052
+    ]
+    c = 10052
+    for _ in range(untouched):
+        c += 10
+        rows.append((c - 10, c + 2, c - 5, c))  # 低點始終高於 MA3（≈ c-10）
+    rows.append((c, c + 2, c - 40, c - 30))  # 觸及均線
+    rows.append((c - 30, c - 28, c - 35, c - 32))
+    return rows
+
+
+def _run_touch(rows, freq="5min", **kw):
+    return run(MaBreakout(ma_period=3, strict_distance=False, exit_mode="ma_touch",
+                          reverse_on_opposite_extreme=False, **kw), make_bars(rows, prev_day=PREV, freq=freq))
+
+
+def test_ma_touch_minutes_default_60():
+    """均線遵循性停利：預設 ma_touch_minutes=60（p.172「連續超過一個小時以上」）。5 分K 12 根＝60 分鐘 → 出場；
+    11 根＝55 分鐘 → 不出場。"""
+    t = _run_touch(_ma_touch_rows(12)).trades[0]
+    assert t.reason_out == "均線遵循性停利" and t.exit_i == 8 + 12 + 1
+    assert _run_touch(_ma_touch_rows(11)).trades[0].reason_out != "均線遵循性停利"
+
+
+def test_ma_touch_minutes_independent_of_bar_period():
+    """1 分K 下 12 根只有 12 分鐘 → 不出場；改回根數模式（ma_touch_minutes=None）則 12 根即出場。"""
+    assert _run_touch(_ma_touch_rows(12), freq="1min").trades[0].reason_out != "均線遵循性停利"
+    t = _run_touch(_ma_touch_rows(12), freq="1min", ma_touch_minutes=None).trades[0]
+    assert t.reason_out == "均線遵循性停利"

@@ -34,6 +34,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -43,6 +44,39 @@ from wangtrader.core import Context, Order, Side, Strategy
 METHOD_ID = "q2-05-02"
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
+def _wait_bars(df: pd.DataFrame, i: int, minutes: float | None, bars: int) -> int:
+    """補進場等待根數：minutes 有設且有交易分鐘欄時，依本根K線長（與前一根的交易分鐘差）換算成根數
+    （無條件進位、至少 1）；否則用 bars。"""
+    if minutes is not None and "trade_min" in df.columns and i > 0:
+        step = df.at[i, "trade_min"] - df.at[i - 1, "trade_min"]
+        if step == step and step > 0:
+            return max(1, math.ceil(minutes / step - 1e-9))
+    return bars
+
+
 @dataclass
 class Params:
     min_volume: float = 1500.0        # F1（p.174），成交量門檻（口數）
@@ -50,6 +84,7 @@ class Params:
     max_filter_bars: int = 15         # C6（p.176），濾網時效根數
     stop_points: float = 20.0         # 停損（風控）點數上限（p.175, 179）
     max_wait: int = 10                # 補進場等待根數（原文未給明確根數，推論比照 q3-01 p.20）
+    max_wait_minutes: float | None = None  # 補進場等待分鐘（推論值無時間依據，預設 None＝用 max_wait 根）
 
 
 @dataclass
@@ -118,6 +153,11 @@ class ExtremeMaxVolume(Strategy):
     def _state(self, sess: int) -> _SessionState:
         return self._st.setdefault(sess, _SessionState())
 
+    def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
+        return df
+
     def on_bar(self, ctx: Context):
         p, df, i = self.p, ctx.df, ctx.i
         sess = int(df.at[i, "session"])
@@ -146,6 +186,6 @@ class ExtremeMaxVolume(Strategy):
             else:
                 # F7：距停損 > stop_points，先忽略，等拉回縮小距離後掛限價補進場
                 limit = stop + p.stop_points * int(side)
-                orders.append(Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
-                                                 reason=reason + "(補進場)", filter_level=level))
+                orders.append(Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p.max_wait_minutes, p.max_wait),
+                                                 stop=stop, reason=reason + "(補進場)", filter_level=level))
         return orders or None

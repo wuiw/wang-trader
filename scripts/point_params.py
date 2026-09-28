@@ -7,7 +7,7 @@
 分類規則：
   - 會被列進 POINT_PARAMS[method] 的欄位＝「點數」（價格距離：停損、目標、濾網幅度、跳空、
     影線容忍值、折返/回檔點數、與平盤/前高低/均線的距離門檻…），套用等比例縮放
-    （乘以 當時價位 / REF_PRICE[書]）。
+    （乘以 當時價位 / ref_price(方法)）。
   - 不列入的欄位＝根數(bars)、K線根數計數(min_run/five_min_bars等)、轉折層級(pivot_level)、
     MA/RSI/KD 週期、RSI/KD 數值本身（0-100 尺度，如 70/30、d_overbought）、比例(ratio)、
     成交量(口數)、布林開關、字串模式(mode/exit_mode)、時間(time)、次數上限(int count)等，
@@ -15,12 +15,15 @@
   - dataclass 內的巢狀 helper class（如 `_Pivot`、`_SideState`、`_SessionState`、`_Chain`、
     `_Track`、`_NTrack`、`_LegState`）是策略內部執行時狀態，不是使用者參數，不在此列出。
 
-有疑慮／邊界案例（已列入縮放，但語意上可能不是單純「價位距離」，縮放後行為需留意）：
-  - q2_01.trail_breach_points (1.0)、q3_04.tolerance_points (1.0)：
-    這兩個是「容忍雜訊」的極小點數門檻（判斷觸價確認、判斷兩根漲跌點數是否視為相等），
-    語意上比較像「可接受誤差」而非「隨價位變化的目標距離」。是否該縮放見仁見智；
-    本表選擇仍列入縮放（其定義仍是「兩個價格之間的點數差」，隨價位等比例放大有一定道理），
-    但縮放後可能從 1 點變成 3~5 點，等於放寬雜訊容忍度，需在報告中特別說明。
+最小跳動類（T 類，台指期一跳 1 點，不隨價位放大）**不列入**縮放（依
+`methods/參數依賴盤點/IMPL_SPEC.md` 甲-3）：
+  - q2_01／q2_02 的 trail_breach_points、range_breach_points（觸價確認「超過 1 點」）
+  - q2_03_01／q2_03_02 的 ladder_ignore_diff（階梯高低點差距可忽略的點數）
+  - q3_04.tolerance_points（兩根漲跌點數視為相等的容忍值）
+  - q3_03.retrace_trigger（折返平倉的「曾真正獲利」門檻，以 tick 計）
+  - sg_02.low_tol、sg_06.stop_offset（同上，以 tick 計）
+
+有疑慮／邊界案例：
   - q2_04_01.second_signal_min_profit、q2_03_02.max_drift_from_breakout：
     預設皆為 None（功能關閉），縮放時维持 None（見 run_scaled.py 的縮放邏輯：None 不縮放，
     只縮放非 None 的數值型點數欄位）。
@@ -29,8 +32,15 @@
   - q2_05_02.min_volume：成交量（口數），**不縮放**。
   - q3_11（波段方法）多數濾網以 RSI/MA 為主，點數欄位只有 retrace_points 一個。
 
-REF_PRICE：兩本書訂定門檻時的大致台指期水位，用來計算縮放倍數
-  （倍數 = 當時實際開盤價 / REF_PRICE[書]）。
+  - q3_11.strike_step（履約價間距 100）：是台指選擇權的交易所履約價間距（實際合約規格），
+    不是作者訂的門檻，**不縮放**，不列入下表。
+
+參考價：縮放倍數 = 當時實際開盤價 / ref_price(方法)。
+  - REF_PRICE：每本書（前綴 q2/q3/gq/sg）一個預設參考價。
+  - REF_PRICE_BY_METHOD：個別方法的參考價（訂定年代與書／群組預設不同時），優先於 REF_PRICE。
+  - ref_price(name)：先查 REF_PRICE_BY_METHOD[name]，再依前綴回退到 REF_PRICE。
+  同一方法內所有點數欄位共用同一參考價（例如均線訊號停損法三欄位 stop_points／stop_min_offset／
+  stop_integer_points 互相銜接，不可分開縮放）。
 """
 
 from __future__ import annotations
@@ -59,6 +69,43 @@ REF_PRICE: dict[str, float] = {
 }
 
 
+# 讀書會書外方法 sg_* 訂定年代各不相同（約 9500～21500），依 methods/參數依賴盤點/sg.md 建議各自設定。
+REF_PRICE_BY_METHOD: dict[str, float] = {
+    # 2021-04 學員整理，台指期約 16500～17500（與 REF_PRICE["sg"] 相同，明列以免誤會）
+    "sg_01_rsi_blunt_quick": 17000.0,
+    # 作者原文 2017-02-09，圖例當天低點約 9505。停損三欄位出自助教 2020-07（約 12500）、
+    # extreme_from_prev_close 借 q3 的 40 點（約 10000），但同一方法只能一個參考價，
+    # 依 sg.md「若只能一個參考價則用 9500」取 9500（訊號門檻 first_move/second_move 的年代）。
+    "sg_02_counterattack_line": 9500.0,
+    # 訊號無點數門檻；停損三欄位是比照 sg-01 的推論 → 跟推論來源一致取 17000
+    # （圖例 2023-04～06 約 15500～16750）。
+    "sg_03_flat_kd": 17000.0,
+    # 作者原文 2025-06-03，定義圖 2025-05-15 約 21750、2025-05-20 約 21540。
+    "sg_04_dent": 21500.0,
+    # 學員筆記 2019-08、助教說明 2018-03～11，圖例約 9450～10730。
+    "sg_05_inside_box": 10000.0,
+    # 有數值的規則出自 2021 年助教說明（約 17000）；若日後確認 2013 部落格為原始定義，再改約 8000。
+    "sg_06_first_bar_color": 17000.0,
+    # 助教說明與實例 2021-03～06（例：昨收 17090、今開 17190），方法文件記約 16000。
+    "sg_07_gap_hundred": 16000.0,
+    # 助教說明 2023-10-06（附圖報價約 16540）、2023-07-07。
+    "sg_08_volume_expansion": 16500.0,
+}
+
+_PREFIXES = ("q2", "q3", "gq", "sg")
+
+
+def ref_price(name: str) -> float:
+    """回傳方法 name（模組名，如 "sg_04_dent"）的縮放參考價：先查 REF_PRICE_BY_METHOD，
+    再依前綴 q2/q3/gq/sg 回退到 REF_PRICE。無法辨識前綴時拋出 KeyError（不默默套用錯誤價位）。"""
+    if name in REF_PRICE_BY_METHOD:
+        return REF_PRICE_BY_METHOD[name]
+    for pre in _PREFIXES:
+        if name.startswith(pre):
+            return REF_PRICE[pre]
+    raise KeyError(f"無法決定 {name!r} 的參考價：不在 REF_PRICE_BY_METHOD，且前綴不是 {_PREFIXES}")
+
+
 POINT_PARAMS: dict[str, list[str]] = {
     "q2_01_ma_three_step": [
         "stop_min_offset",
@@ -69,9 +116,8 @@ POINT_PARAMS: dict[str, list[str]] = {
         "min_bar_points",
         "profit_target",
         "trail_points",
-        "trail_breach_points",  # 見檔頭「有疑慮」說明：極小容忍值，縮放後語意需留意
+        # trail_breach_points、range_breach_points 為最小跳動（T 類），不縮放
         "ma_fast_arm_profit",  # ma 出場：獲利達此點數後切換 MA(ma_fast_period)（p.42）
-        "range_breach_points",  # range 出場：觸及＝影線超過停利點此點數（p.47「超過1點」）
         "fixed_exit_points",  # fixed 出場：窄幅盤整固定點數出場（p.28）
         "breakeven_arm_points",  # 求不賠：獲利曾達此點數後回進場價出場（p.32-33）；預設非 None，None 時維持 None
         "time_stop_min_profit",
@@ -83,12 +129,11 @@ POINT_PARAMS: dict[str, list[str]] = {
         "same_dir_min_swing",
         "profit_target",
         "trail_points",
-        "trail_breach_points",
-        "range_breach_points",
+        # trail_breach_points、range_breach_points 為最小跳動（T 類），不縮放
         "time_stop_min_profit",
     ],
     "q2_03_01_pvt_n_type": [
-        "ladder_ignore_diff",
+        # ladder_ignore_diff 為最小跳動（T 類），不縮放
         "stop_min_offset",
         "stop_integer_points",
         "stop_max_risk",
@@ -98,7 +143,7 @@ POINT_PARAMS: dict[str, list[str]] = {
         "giveback_points",
     ],
     "q2_03_02_pvt_rsi": [
-        "ladder_ignore_diff",
+        # ladder_ignore_diff 為最小跳動（T 類），不縮放
         "break_points",
         "retrace_points",
         "max_drift_from_breakout",  # 預設 None，維持 None；非 None 時才縮放
@@ -185,10 +230,10 @@ POINT_PARAMS: dict[str, list[str]] = {
         "extreme_from_prev_close",
         "profit_target",
         "giveup_distance",  # F6：距母K極端點 ≥ 此值原則上放生不操作（p.73）
-        "retrace_trigger",  # 折返平倉的「曾真正獲利」門檻
+        # retrace_trigger 為最小跳動（T 類），不縮放
     ],
     "q3_04_tit_for_tat": [
-        "tolerance_points",  # 見檔頭「有疑慮」說明：極小容忍值，縮放後語意需留意
+        # tolerance_points 為最小跳動（T 類），不縮放
         "stop_points",  # float | None，預設 20.0（非 None），照常縮放；None 維持 None
         "profit_target", "extreme_range", "extreme_from_prev_close",
         "retrace_trigger",  # 折返平倉／反手資格門檻（p.90-91）
@@ -267,9 +312,10 @@ POINT_PARAMS: dict[str, list[str]] = {
         "retrace_points",
         # rsi_extreme_high/low、rsi_near_tol 為 RSI(0-100)數值，不縮放；
         # max_pullback_bars 為根數，不縮放。波段方法（intraday=False），見 run_scaled.py 說明。
+        # strike_step 是台指選擇權交易所的履約價間距（實際合約規格，非作者門檻），不縮放。
     ],
     # ---- 《股技期招》gq_* ----
-    # 其餘 22 個 gq_* 模組的 Params 逐一檢查後，沒有價格點數欄位（門檻多為 K 線型態、百分比、
+    # 其餘 19 個 gq_* 模組的 Params 逐一檢查後，沒有價格點數欄位（門檻多為 K 線型態、百分比、
     # RSI/KD/MACD/DMI/威廉指標數值、根數等），不列入本表，縮放版即等於預設版。
     "gq_01_11_pivot_trendline_breakout": [
         "fixed_points",  # 轉折點過遠時改用固定停損（p.68-70）
@@ -280,5 +326,57 @@ POINT_PARAMS: dict[str, list[str]] = {
     "gq_04_02_dmi_stalagmite": [
         "points_target",  # exit_mode="points"，台指期分時固定點數出場（p.184，書中20~30點）
         # stop_pct 為百分比，不縮放；max_pct_from_extreme 為百分比，不縮放
+    ],
+    # gq_03_*：exit_mode="ladder" 的啟動獲利門檻（點數，原文未規定，預設 0＝推論）；
+    # 預設 0 縮放後仍 0，改成非 0 時才有縮放效果。stop_tick 為最小跳動（T 類），不縮放。
+    "gq_03_01_macd_n_turn": ["profit_target"],
+    "gq_03_03_macd_double_cross": ["profit_target"],
+    "gq_03_04_dif_streak_reversal": ["profit_target"],
+    # ---- 讀書會書外方法 sg_*（參考價見 REF_PRICE_BY_METHOD；同一方法共用一個參考價）----
+    "sg_02_counterattack_line": [
+        "first_move",
+        "second_move",
+        "high_match_tol",  # 預設 None，維持 None
+        "extreme_tol",  # 預設 0，縮放後仍 0
+        "extreme_from_prev_close",  # 借 q3 的 40 點（約 10000），同方法一律用 9500
+        "stop_points",
+        "stop_min_offset",
+        "stop_integer_points",
+        # low_tol 為最小跳動（T 類），不縮放
+    ],
+    "sg_03_flat_kd": [
+        "stop_points",
+        "stop_min_offset",
+        "stop_integer_points",
+    ],
+    "sg_04_dent": [
+        "stop_points",
+        "wait_offset",
+        "large_bar_points",  # 預設 None，維持 None
+        # max_wait_minutes 為時間，不縮放
+    ],
+    "sg_05_inside_box": [
+        "max_first_range",
+        "near_extreme_points",
+        "stop_points",
+    ],
+    "sg_06_first_bar_color": [
+        "gap_points",  # 預設 0，縮放後仍 0
+        "max_stop_points",  # 預設 None，維持 None
+        "stop_min_offset",
+        "stop_integer_points",
+        # stop_offset 為最小跳動（T 類），不縮放；breakout_window_minutes 為時間
+    ],
+    "sg_07_gap_hundred": [
+        "gap_threshold",
+        "stop_points",
+        "stop_min_offset",
+        "stop_integer_points",
+    ],
+    "sg_08_volume_expansion": [
+        "stop_points",
+        "stop_min_offset",
+        "stop_integer_points",
+        # base_volume、volume_increase 為成交量（口數，V 類），不縮放
     ],
 }

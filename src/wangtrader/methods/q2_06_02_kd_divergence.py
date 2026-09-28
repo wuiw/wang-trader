@@ -27,7 +27,8 @@
 停損（p.209「依背離低點(B)為停損」）：stop_mode 三選一：
   "endpoint"：背離端點 B＝第二個端點（本次訊號創新高/新低的極端價，即當下盤中最高/最低），非前波峰谷位 P1。
   "ma_signal"：比照第一章均線訊號停損法（q2-01 p.13-14）：
-    多＝收盤−(10+收盤個位數)；空＝收盤+(20−收盤個位數)（個位數0→20點，非買賣鏡像對稱公式）。
+    多＝收盤−(stop_min_offset(10)+收盤個位數)；空＝收盤+(stop_integer_points(20)−收盤個位數)
+    （空方個位數0→20點，非買賣鏡像對稱公式；多方個位數0 維持原實作＝10 點，與 q2-01 的 20 點不同，見 §12）。
   "combined"（預設，原文明確：p.209「取兩者較低者」為多單、鏡像取較高者為空單）：
     多＝min(endpoint, ma_signal)；空＝max(endpoint, ma_signal)。
   若進場距停損 > stop_points（預設20），先忽略，等拉回縮小距離後掛限價補進場。
@@ -48,6 +49,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import pandas as pd
@@ -56,6 +58,49 @@ from wangtrader.core import Context, Order, Side, Strategy
 from wangtrader.core.indicators import kd, sar, sma
 
 METHOD_ID = "q2-06-02"
+
+
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
+def _wait_bars(df: pd.DataFrame, i: int, minutes: float | None, bars: int) -> int:
+    """補進場等待根數：minutes 有設且有交易分鐘欄時，依本根K線長（與前一根的交易分鐘差）換算成根數
+    （無條件進位、至少 1）；否則用 bars。"""
+    if minutes is not None and "trade_min" in df.columns and i > 0:
+        step = df.at[i, "trade_min"] - df.at[i - 1, "trade_min"]
+        if step == step and step > 0:
+            return max(1, math.ceil(minutes / step - 1e-9))
+    return bars
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
 
 
 @dataclass
@@ -68,12 +113,16 @@ class Params:
     kd_k_period: int = 3
     kd_d_period: int = 3
     confirm_wait: int = 10        # F3：等待方向正確K線的根數上限（原文未給明確根數，推論）
+    confirm_wait_minutes: float | None = None  # F3 分鐘版（推論值無時間依據，預設 None＝用 confirm_wait 根）
     dir_bar_needs_change: bool = False  # 讀書會「空要下跌黑K、買要上漲紅K」，書外規則，預設關閉
     require_ma_or_sar: bool = False  # p.212：可選加開 MA8／SAR 濾網，預設關閉（原文為建議非硬性）
     ma_period: int = 8
     gap_carry_points: float = 10.0   # F4（p.213）
     stop_points: float = 20.0
+    stop_min_offset: float = 10.0      # 均線訊號停損固定部分（q2-01 p.13）：多＝收盤−(此值+個位數)
+    stop_integer_points: float = 20.0  # 均線訊號停損：空＝收盤+(此值−個位數)（q2-01 p.14）
     max_wait: int = 10            # 補進場等待根數（原文未給明確根數，推論比照 q3-01 p.20）
+    max_wait_minutes: float | None = None  # 補進場等待分鐘（推論值無時間依據，預設 None＝用 max_wait 根）
     stop_mode: str = "combined"   # "endpoint" | "ma_signal" | "combined"（p.209 原文機制）
     reversal_bounce_points: float = 20.0  # p.209：反彈未達此點數即視為背離失敗
     mirror_reversal: bool = True  # 空單反手規則為鏡像推論，預設開啟
@@ -116,11 +165,11 @@ def _cross(df: pd.DataFrame, i: int) -> str | None:
     return None
 
 
-def _ma_signal_stop(close: float, side: Side) -> float:
-    """比照 q2-01 均線訊號停損法：多＝收盤−(10+個位數)（p.13）；
-    空＝收盤+(20−個位數)（p.14，個位數0時為20點；非買賣鏡像互換，兩式不對稱）。"""
+def _ma_signal_stop(close: float, side: Side, min_offset: float = 10.0, integer_points: float = 20.0) -> float:
+    """比照 q2-01 均線訊號停損法：多＝收盤−(min_offset+個位數)（p.13）；
+    空＝收盤+(integer_points−個位數)（p.14，個位數0時為 integer_points；非買賣鏡像互換，兩式不對稱）。"""
     ones = int(round(abs(close))) % 10
-    return close - (10 + ones) if side == Side.LONG else close + (20 - ones)
+    return close - (min_offset + ones) if side == Side.LONG else close + (integer_points - ones)
 
 
 def _track_side(chain: _Chain, df: pd.DataFrame, i: int, p: Params, *, is_short: bool):
@@ -135,7 +184,8 @@ def _track_side(chain: _Chain, df: pd.DataFrame, i: int, p: Params, *, is_short:
     pullback_ok = (p.k_extreme <= k_ < p.k_mid) if is_short else ((100 - p.k_mid) < k_ <= (100 - p.k_extreme))
 
     if chain.confirm_bar is not None:
-        if i - chain.confirm_bar > p.confirm_wait:
+        waited, lim = _elapsed(df, chain.confirm_bar, i, p.confirm_wait_minutes, p.confirm_wait)
+        if waited > lim:
             chain.confirm_bar = None
             return None
         is_dir_bar = _dir_bar(df, i, is_short, p.dir_bar_needs_change)
@@ -206,6 +256,7 @@ class KdDivergence(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         kdf = kd(df, n=self.p.kd_n, k_period=self.p.kd_k_period, d_period=self.p.kd_d_period)
         df["k"], df["d"] = kdf["k"], kdf["d"]
         df["ma8"] = sma(df["close"], self.p.ma_period)
@@ -222,7 +273,7 @@ class KdDivergence(Strategy):
         return bool(b["close"] < b["ma8"] or (b["sar_trend"] == -1 and b["close"] < b["sar"]))
 
     def _stop(self, close: float, level: float, side: Side) -> float:
-        ma = _ma_signal_stop(close, side)
+        ma = _ma_signal_stop(close, side, self.p.stop_min_offset, self.p.stop_integer_points)
         if self.p.stop_mode == "endpoint":
             return level
         if self.p.stop_mode == "ma_signal":
@@ -258,8 +309,8 @@ class KdDivergence(Strategy):
                 orders.append(Order.enter(side, stop=stop, reason=reason, b_ref=b_ref))
             else:
                 limit = stop + p.stop_points * int(side)
-                orders.append(Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
-                                                 reason=reason + "(補進場)", b_ref=b_ref))
+                orders.append(Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p.max_wait_minutes, p.max_wait),
+                                                 stop=stop, reason=reason + "(補進場)", b_ref=b_ref))
         return orders or None
 
     def _check_reversal(self, ctx: Context):

@@ -45,7 +45,8 @@ PVT 通道／趨勢階梯（p.95-98）：本模組自行實作（不與其他方
 過濾（p.104-105, 110）：
   F1 (0)到(3)距離 > max_pattern_points(30) → 忽略。
   F2 (0)距階梯 > max_dev_from_ladder(20) → 不列入計數；例外：確認(3)時(2)距當時階梯 ≤ 門檻仍可視為有效（p.107）。
-  F3 突破/跌破階梯後偏離 > max_drift_from_breakout(30) 或拖延 > max_bars_from_breakout(60) 根仍未成訊號 → 忽略。
+  F3 突破/跌破階梯後偏離 > max_drift_from_breakout(30) 或拖延 > max_minutes_from_breakout(60) 交易分鐘
+     （原文「60分鐘」；None 或 time 非時間戳時退回 max_bars_from_breakout 根）仍未成訊號 → 忽略。
   F4 no_entry_after：晚於此時刻不進場（書中收盤前1小時，p.105；預設 None 關閉，時鐘規則）；
      被F4濾掉、其餘條件皆通過的訊號可沿用至隔日開盤延續進場（見「進場」節，carry_over_to_next_open）。
 
@@ -151,6 +152,29 @@ def _digit_stop(side: Side, close_price: float, min_offset: float, integer_point
     return close_price - pts if side == Side.LONG else close_price + pts
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
 @dataclass
 class Params:
     pivot_level: int = 2  # 層級2轉折點（p.100-101 亦可選層級4）
@@ -162,7 +186,8 @@ class Params:
     max_pattern_points: float = 30.0  # F1：(0)到(3)距離上限（p.104）
     max_dev_from_ladder: float = 20.0  # F2：(0)距階梯上限（p.105）
     max_drift_from_breakout: float = 30.0  # F3：突破後偏離上限（p.110）
-    max_bars_from_breakout: int = 60  # F3：突破後拖延根數上限（p.110）
+    max_bars_from_breakout: int = 60  # F3：突破後拖延根數上限（p.110）；max_minutes_from_breakout=None 時使用
+    max_minutes_from_breakout: float | None = 60.0  # F3：突破後拖延分鐘上限（p.110 原文「60分鐘」）；None 用根數
     no_entry_after: time | None = None  # F4：書中收盤前1小時（p.105），預設關閉
     carry_over_to_next_open: bool = True  # 隔日開盤延續進場（p.105-106）：F4濾掉的訊號沿用隔日開盤第一根
     giveback_points: float = 15.0  # 折返停利點數（書中舉例15或20點，p.108/118）
@@ -182,6 +207,7 @@ class PVTNType(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         peaks, troughs = _pivots_by_session(df, self.p.pivot_level)
         self._peaks_by_confirm = _group_by_confirm(peaks)
         self._troughs_by_confirm = _group_by_confirm(troughs)
@@ -427,7 +453,8 @@ class PVTNType(Strategy):
                 return False
         if abs(close - st["breakout_price"]) > p.max_drift_from_breakout:  # F3 偏離
             return False
-        if i - st["breakout_i"] > p.max_bars_from_breakout:  # F3 拖延
+        waited, lim = _elapsed(df, st["breakout_i"], i, p.max_minutes_from_breakout, p.max_bars_from_breakout)
+        if waited > lim:  # F3 拖延
             return False
         return True
 

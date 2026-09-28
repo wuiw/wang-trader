@@ -4,6 +4,7 @@ from wangtrader.core import Side, run
 from wangtrader.methods.q2_04_01_cross_kd_n_type import CrossKDNType
 
 HTF = 9  # htf_bars：9根小週期合成1根大週期，方便用「整組重複同一根K線」手算 KD 交叉
+BARS = dict(htf_bars=HTF, htf_minutes=None)  # 既有測試用根數版；分鐘版另見文末
 
 # 前 18 根（2 組大週期K線，各由 9 根相同K線構成）製造一次黃金交叉：
 #   group0＝9根(100,105,95,97) → k0=40.0, d0=46.67（k<=d）
@@ -43,7 +44,7 @@ SHORT_BARS = _DEAD_PREFIX + _SHORT_N_SHAPE
 
 def test_golden_cross_n_type_long_signal():
     bars = make_bars(LONG_BARS)
-    res = run(CrossKDNType(htf_bars=HTF), bars)
+    res = run(CrossKDNType(**BARS), bars)
     sig = res.signals[0]
     assert sig.side == Side.LONG and sig.reason == "N型買訊"
     assert sig.i == 25 and sig.price == 108 and sig.stop == 95
@@ -51,7 +52,7 @@ def test_golden_cross_n_type_long_signal():
 
 def test_dead_cross_inverse_n_type_short_signal():
     bars = make_bars(SHORT_BARS)
-    res = run(CrossKDNType(htf_bars=HTF), bars)
+    res = run(CrossKDNType(**BARS), bars)
     sig = res.signals[0]
     assert sig.side == Side.SHORT and sig.reason == "倒N型空訊"
     assert sig.i == 25 and sig.price == 292 and sig.stop == 305
@@ -73,7 +74,7 @@ def test_pullback_below_zero_invalidates_structure():
         (92, 94, 91, 93),
     ]
     bars = make_bars(_GOLDEN_PREFIX + shape)
-    res = run(CrossKDNType(htf_bars=HTF), bars)
+    res = run(CrossKDNType(**BARS), bars)
     assert res.signals == []
 
 
@@ -82,7 +83,7 @@ def test_incomplete_trailing_htf_bar_is_not_used():
     # 此時只有 1 根已收完的大週期K線，尚不足以判斷任何交叉，regime 應全部為 0，不產生任何搜尋。
     rows = [(100, 105, 95, 97)] * HTF + [(97, 130, 96, 128)] * 3
     bars = make_bars(rows)
-    res = run(CrossKDNType(htf_bars=HTF), bars)
+    res = run(CrossKDNType(**BARS), bars)
     assert res.signals == []
 
 
@@ -99,7 +100,7 @@ def test_five_bar_reversal_exit_on_short_position():
         (261, 268, 260, 267),  # 首根紅K → 平倉
     ]
     bars = make_bars(rows)
-    res = run(CrossKDNType(htf_bars=HTF), bars)
+    res = run(CrossKDNType(**BARS), bars)
     trade = res.trades[0]
     assert trade.side == Side.SHORT and trade.reason_out == "五黑過首紅"
 
@@ -116,7 +117,7 @@ def test_zero_point_excludes_bars_after_peak():
         (100, 102, 97, 101),
         (101, 110, 100, 108),  # 收盤 108 > 舊峰 105，但舊結構已作廢 → 不得成為訊號
     ]
-    res = run(CrossKDNType(htf_bars=HTF), make_bars(_GOLDEN_PREFIX + shape))
+    res = run(CrossKDNType(**BARS), make_bars(_GOLDEN_PREFIX + shape))
     assert res.signals == []
 
 
@@ -124,17 +125,17 @@ def test_f3_uses_signal_bar_body_not_distance_to_zero():
     """F3（p.127）：看的是訊號K線的漲跌點數；小實體但距 0 點較遠者仍立即進場。"""
     rows = list(LONG_BARS)
     rows[25] = (106, 110, 105, 108)  # 實體 2 點、距 0 點 13 點
-    res = run(CrossKDNType(htf_bars=HTF, max_signal_points=5), make_bars(rows))
+    res = run(CrossKDNType(**BARS, max_signal_points=5), make_bars(rows))
     assert res.signals[0].reason == "N型買訊"
     rows[25] = (101, 110, 100, 108)  # 實體 7 點 > 5 → 補進場
-    res = run(CrossKDNType(htf_bars=HTF, max_signal_points=5), make_bars(rows))
+    res = run(CrossKDNType(**BARS, max_signal_points=5), make_bars(rows))
     assert res.signals[0].reason == "N型買訊(補進場)" and res.signals[0].price == 105
 
 
 def test_retrace_exit_trails_from_best_price():
     """折返停利（p.133）：通過目標後自最有利價折返 15 點即出場，不是只回到進場價才出場。"""
     rows = LONG_BARS + [(108, 130, 107, 128), (128, 129, 112, 113)]
-    res = run(CrossKDNType(htf_bars=HTF), make_bars(rows))
+    res = run(CrossKDNType(**BARS), make_bars(rows))
     t = res.trades[0]
     assert t.reason_out == "折返停利" and t.exit_price == 113
 
@@ -144,7 +145,7 @@ def test_structure_keeps_advancing_while_position_held():
     from wangtrader.core import Context, Position, prepare
 
     rows = LONG_BARS + [(108, 112, 107, 110), (110, 116, 109, 114), (114, 115, 111, 112), (112, 114, 110, 111)]
-    strat = CrossKDNType(htf_bars=HTF)
+    strat = CrossKDNType(**BARS)
     df = strat.prepare(prepare(make_bars(rows)))
     for i in range(0, 26):  # 先照常跑到訊號根（第 25 根），之後模擬持倉
         strat.on_bar(Context(i=i, df=df, pos=None, trades=[], stopped=None))
@@ -162,6 +163,44 @@ def test_c3_exception_signal_on_cross_confirmation_bar():
         (103, 108, 102, 107),  # 第 17 根：大週期收盤確認黃金交叉，且收盤 107 突破峰(1)=105
     ]
     rows = [(100, 105, 95, 97)] * HTF + group1 + [(107, 108, 106, 107)] * 3
-    res = run(CrossKDNType(htf_bars=HTF), make_bars(rows))
+    res = run(CrossKDNType(**BARS), make_bars(rows))
     assert [s.i for s in res.signals] == [17]
     assert res.signals[0].stop == 95 and res.signals[0].price == 107
+
+
+def test_htf_minutes_matches_bar_ratio_on_any_timeframe():
+    """htf_minutes（預設15，原文 15 分鐘K線）：依交易分鐘分組，5 分K×9 根＝45 分鐘、1 分K×9 根＝9 分鐘，
+    與根數版 htf_bars=9 結果相同。"""
+    for freq, minutes in (("5min", 45.0), ("1min", 9.0)):
+        res = run(CrossKDNType(htf_minutes=minutes), make_bars(LONG_BARS, freq=freq))
+        assert res.signals[0].i == 25 and res.signals[0].price == 108 and res.signals[0].stop == 95
+
+
+def test_htf_minutes_incomplete_trailing_group_is_not_used():
+    rows = [(100, 105, 95, 97)] * HTF + [(97, 130, 96, 128)] * 3
+    assert run(CrossKDNType(htf_minutes=45.0), make_bars(rows)).signals == []
+
+
+def test_htf_minutes_group_with_missing_bar_waits_for_next_bar():
+    """組內缺K線、最後一根未走到分組終點：不能在該根就認定大週期收完，延到下一根才採用（不偷看未來）。"""
+    import pandas as pd
+
+    from wangtrader.core import prepare
+
+    strat = CrossKDNType(htf_minutes=45.0)
+    full = strat.prepare(prepare(make_bars(LONG_BARS)))
+    assert full.at[16, "htf_regime"] == 0 and full.at[17, "htf_regime"] == 1
+    gap = make_bars(LONG_BARS).drop(pd.Timestamp("2024-01-02 08:45") + pd.Timedelta(minutes=5 * 17))  # 刪第二組最後一根
+    df = CrossKDNType(htf_minutes=45.0).prepare(prepare(gap))
+    assert df.at[16, "htf_regime"] == 0 and df.at[17, "htf_regime"] == 1  # 第17根已是下一組第一根
+
+
+def test_max_wait_minutes_converts_to_bars():
+    import pandas as pd
+
+    from wangtrader.methods.q2_04_01_cross_kd_n_type import _wait_bars
+
+    df = pd.DataFrame({"trade_min": [0.0, 5.0, 10.0]})
+    assert _wait_bars(df, 2, 10.0, 10) == 2  # 5 分K：10 分鐘＝2 根
+    assert _wait_bars(df, 2, 12.0, 10) == 3  # 無條件進位
+    assert _wait_bars(df, 2, None, 10) == 10  # 預設 None：用 max_wait 根數

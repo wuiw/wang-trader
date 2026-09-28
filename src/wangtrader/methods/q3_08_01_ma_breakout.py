@@ -27,7 +27,9 @@
   實體中點（p.174 圖8-20「跌點近40點，停損可設在K線中線」）。
 出場（p.163, 169, 172）：exit_mode = "retrace"（15點折返移動停利，預設，本模組私有實作因核心
   ladder/ma/sar 皆非「距最高獲利回吐固定點數」語意）| "ma_touch"（均線遵循性停利：持倉期間連續
-  ma_touch_bars 根未觸及均線後，首次觸及均線即出場，本模組私有實作）| "ladder"|"ma"|"sar"|"none"。
+  未觸及均線逾 ma_touch_minutes 分鐘（p.172 圖8-19「連續超過一個小時以上」，預設 60，以K線時間戳
+  計算、不綁週期；設 None 或 time 欄不是時間戳時改用 ma_touch_bars 根）後，首次觸及均線即出場，
+  本模組私有實作）| "ladder"|"ma"|"sar"|"none"。
 逆向反手（p.169）：持有順向單期間，若出現對立方向的極端位置逆向訊號（頂雙黑/底雙紅，本模組
   私有偵測 `_extreme_reversal_side`，定義同 q3-01 但獨立實作），須立即平倉並反手，沒有例外
   （p.169「必須毫無懸念地平倉並反手」），反手停損＝反手收盤 ± stop_points。
@@ -65,11 +67,36 @@ from wangtrader.core.pivots import find_pivots
 METHOD_ID = "q3-08-01"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     ma_period: int = 10  # MA10（p.157）
     stop_points: float = 20.0  # 停損點數（p.162-165，圖8-9）
     max_wait: int = 10  # 補進場等待根數（書中未載明確切根數，沿用 q3-01 慣例，待確認）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     large_bar_mode: str = "wait"  # "wait"（補進場，預設）| "midpoint"（直接進場，停損設實體中點）
     rest_extreme_filter: bool = False  # 推論：以休息期間極值作濾網（p.172 圖8-17 讀法），預設關閉
     turn_dist_min: float = 10.0  # F3（p.168）
@@ -86,7 +113,8 @@ class Params:
     exit_mode: str = "retrace"  # "retrace"|"ma_touch"|"ladder"|"ma"|"sar"|"none"
     retrace_arm: float = 15.0  # 折返停利：先達此獲利才開始追蹤（p.163圖8-6示範獲利逾30才觸發）
     retrace_points: float = 15.0  # 折返停利：由最高獲利回吐此點數觸價出場（p.163, p.184-185）
-    ma_touch_bars: int = 12  # 均線遵循性停利：連續未觸及均線根數門檻（書中「逾1小時」，以5分K換算約12根，週期不同須自行調整）
+    ma_touch_bars: int = 12  # 均線遵循性停利：連續未觸及均線根數門檻（ma_touch_minutes=None 時使用；5分K 12根≈1小時）
+    ma_touch_minutes: float | None = 60.0  # 均線遵循性停利：連續未觸及均線的分鐘門檻（p.172 圖8-19「連續超過一個小時以上」）
 
 
 class MaBreakout(Strategy):
@@ -265,22 +293,33 @@ class MaBreakout(Strategy):
         return None
 
     def _ma_touch_exit(self, ctx: Context) -> Order | None:
-        """均線遵循性停利（p.172）：持倉期間連續 ma_touch_bars 根未觸及均線後，首次觸及即出場。"""
-        pos = ctx.pos
+        """均線遵循性停利（p.172）：持倉期間連續未觸及均線逾 ma_touch_minutes 分鐘（或 ma_touch_bars 根）
+        後，首次觸及即出場。未觸及區段＝錨點（最近一次觸及／重設的那根）之後到前一根。"""
+        p, pos, i = self.p, ctx.pos, ctx.i
         b = ctx.bar()
         ma = b["ma"]
-        key = "untouched"
+        key = "untouched_anchor"
+        if key not in pos.meta:
+            pos.meta[key] = i - 1
         if ma != ma:
-            pos.meta[key] = 0
+            pos.meta[key] = i
             return None
         touched = (b["low"] <= ma) if pos.side == Side.LONG else (b["high"] >= ma)
-        if touched:
-            armed = pos.meta.get(key, 0) >= self.p.ma_touch_bars
-            pos.meta[key] = 0
-            if armed and ctx.i > pos.entry_i:
-                return Order.exit("均線遵循性停利")
+        if not touched:
             return None
-        pos.meta[key] = pos.meta.get(key, 0) + 1
+        anchor = pos.meta[key]
+        pos.meta[key] = i
+        armed = (i - 1) - anchor >= p.ma_touch_bars
+        if p.ma_touch_minutes is not None and i - 1 > anchor:
+            try:
+                mins = (ctx.df.at[i - 1, "time"] - ctx.df.at[anchor, "time"]).total_seconds() / 60.0
+                armed = mins >= p.ma_touch_minutes
+            except (TypeError, AttributeError):
+                pass  # time 欄不是時間戳 → 沿用根數判斷
+        elif p.ma_touch_minutes is not None:
+            armed = False
+        if armed and i > pos.entry_i:
+            return Order.exit("均線遵循性停利")
         return None
 
     def _run_exit(self, ctx: Context) -> Order | None:
@@ -331,7 +370,7 @@ class MaBreakout(Strategy):
             mid = (float(b["open"]) + c) / 2.0
             return [Order.enter(side, stop=mid, reason=name + "(大K線)")]
         limit = ext + p.stop_points * int(side)  # 多：低點+20；空：高點-20
-        return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=ext, reason=name + "(補進場)")]
+        return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=ext, reason=name + "(補進場)")]
 
 
 def _extreme_reversal_side(

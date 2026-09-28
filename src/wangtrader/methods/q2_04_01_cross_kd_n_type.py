@@ -6,10 +6,12 @@
 N 型（多）／倒 N 型（空）三步驟作為進場觸發。本模組用參數 `htf_bars`（幾根小週期
 K 線合成一根大週期 K 線）在模組內因果合成大週期 K 線，並只用「已完成」的大週期
 K 線計算 KD、判斷交叉（大週期 K 線尚未走完前，其 KD 值一律視為未知）。
-`htf_bars` 是「根數比」而非時鐘週期：書中 15 分K／1 分K＝15；換成 3 分K 或 5 分K 輸入時，
-預設值 15 會使大週期變成 45／75 分鐘，趨勢濾網的意義隨之改變（依「不區隔週期」原則，
-本模組不讀取時鐘，由使用者依輸入週期自行調整 htf_bars）。大週期分組自每個交易日第一根起算，
-交易日最後一組不足 htf_bars 根者於收盤時視為完成。
+大週期預設以分鐘計：`htf_minutes`（預設 15，原文「15 分鐘 K 線」）依每根K線的交易分鐘（time 欄，
+自交易日第一根起算）分組，每 htf_minutes 分鐘一組，輸入 1／3／5 分K 時大週期都是 15 分鐘；
+一組在「最後一根K線走完（該根時間＋K線長 ≥ 分組終點）」時完成，組內有缺K線而最後一根未走到終點者，
+延到下一根（確知已進入下一組）才採用。`htf_minutes=None` 或 time 非時間戳時退回 `htf_bars`
+（根數比：書中 15 分K／1 分K＝15，輸入其他週期時須自行調整）。大週期分組自每個交易日第一根起算，
+交易日最後一組不足者於收盤時視為完成。
 
 訊號（N型／倒N型三步驟，p.127, 129）：
   多：0（區間起始最低點，隨後續新低持續下探）→(1)（層級2峰點，若多個取最高者）
@@ -43,12 +45,14 @@ K 線計算 KD、判斷交叉（大週期 K 線尚未走完前，其 KD 值一�
   N型狀態機不論是否持倉都逐根推進（持倉期間的峰谷與新低仍須納入結構判斷）。
   F5　結構(2)違反0點限制 → 作廢重新尋找（見上）。
 
-週期：不限。所有門檻以點數／根數表示；大週期以 `htf_bars` 根小週期K線因果合成。
+週期：不限。所有門檻以點數／根數／分鐘表示；大週期以 `htf_minutes` 分鐘（或 `htf_bars` 根）小週期K線因果合成。
+補進場等待預設 max_wait 根；max_wait_minutes 有設時改以分鐘換算（書中未給時間，推論值，預設 None）。
 """
 
 from __future__ import annotations
 
 import bisect
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -61,9 +65,43 @@ from wangtrader.core.pivots import Pivot, find_pivots
 METHOD_ID = "q2-04-01"
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
+def _wait_bars(df: pd.DataFrame, i: int, minutes: float | None, bars: int) -> int:
+    """補進場等待根數：minutes 有設且有交易分鐘欄時，依本根K線長（與前一根的交易分鐘差）換算成根數
+    （無條件進位、至少 1）；否則用 bars。"""
+    if minutes is not None and "trade_min" in df.columns and i > 0:
+        step = df.at[i, "trade_min"] - df.at[i - 1, "trade_min"]
+        if step == step and step > 0:
+            return max(1, math.ceil(minutes / step - 1e-9))
+    return bars
+
+
 @dataclass
 class Params:
-    htf_bars: int = 15  # 大週期／小週期根數比（書中15分鐘／1分鐘＝15，p.127）
+    htf_bars: int = 15  # 大週期／小週期根數比（書中15分鐘／1分鐘＝15，p.127）；htf_minutes=None 時使用
+    htf_minutes: float | None = 15.0  # 大週期分鐘數（p.127 原文「15 分鐘 K 線」），依 time 欄分組；None 用 htf_bars
     kd_n: int = 9  # 大週期 KD 的 RSV 週期（p.127）
     k_period: int = 3  # KD 的 K 平滑週期（書中未特別說明，沿用台式KD慣例）
     d_period: int = 3  # KD 的 D 平滑週期（同上）
@@ -72,6 +110,7 @@ class Params:
     pullback_stop_max: float = 10.0  # F3：補進場時距停損（0點）的目標距離（p.127）
     big_bar_pullback: bool = True  # F3：大K線訊號等拉回補進場（True）或直接忽略（False），書中兩者並列
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，比照 q3-01 慣例預設，見末待確認事項）
+    max_wait_minutes: float | None = None  # 補進場等待分鐘（推論值無時間依據，預設 None＝用 max_wait 根）
     retrace_points: float = 15.0  # 折返停利點數（p.133）
     five_bar_n: int = 5  # 五黑過首紅之連續根數門檻（p.134）
     mirror_five_bar_long: bool = True  # 推論：多方鏡射「五紅過首黑」，預設開啟（CODING_SPEC規則6）
@@ -91,18 +130,32 @@ class CrossKDNType(Strategy):
 
     # ---- 大週期合成與交叉判斷 ----
 
-    def _htf_group_ids(self, df: pd.DataFrame) -> np.ndarray:
-        """每根小週期K線所屬的大週期分組序號（依 session 重置分組起點，因果、全表遞增）。"""
-        grp_in_sess = (df["bar_no"] // self.p.htf_bars).astype(int)
+    def _use_minutes(self, df: pd.DataFrame) -> bool:
+        return self.p.htf_minutes is not None and "trade_min" in df.columns and bool(df["trade_min"].notna().all())
+
+    def _htf_group_ids(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        """每根小週期K線所屬的大週期分組序號（依 session 重置分組起點，因果、全表遞增），
+        以及每根K線走完時是否已到達所屬分組的終點（分鐘版；根數版由根數判斷，這裡全為 False）。"""
+        n = len(df)
+        if self._use_minutes(df):
+            tm = df["trade_min"].astype(float)
+            rel = tm - tm.groupby(df["session"]).transform("first")  # 自交易日第一根起算的交易分鐘
+            step = tm.diff().fillna(0.0)  # 本根K線長（與前一根的交易分鐘差）
+            hm = float(self.p.htf_minutes)
+            grp_in_sess = np.floor(rel.to_numpy() / hm + 1e-9).astype(int)
+            end_ok = (rel.to_numpy() + step.to_numpy()) >= (grp_in_sess + 1) * hm - 1e-9
+        else:
+            grp_in_sess = (df["bar_no"] // self.p.htf_bars).astype(int).to_numpy()
+            end_ok = np.zeros(n, dtype=bool)
         key = pd.Index(zip(df["session"].tolist(), grp_in_sess.tolist(), strict=False))
         codes, _ = pd.factorize(key, sort=False)
-        return codes
+        return codes, end_ok
 
     def _regime(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """回傳 (regime, reset)：regime 為每根小週期K線「已知」的大週期金叉(1)/死叉(-1)/尚無(0)；
         reset 標示該根應開始（重新）搜尋 N 型／倒N型。只用已收完的大週期K線。"""
         n = len(df)
-        gids = self._htf_group_ids(df)
+        gids, end_ok = self._htf_group_ids(df)
         pos = np.arange(n)
         tmp = pd.DataFrame({"o": df["open"], "h": df["high"], "l": df["low"], "c": df["close"],
                              "grp": gids, "pos": pos, "session": df["session"].to_numpy()})
@@ -110,10 +163,20 @@ class CrossKDNType(Strategy):
             open=("o", "first"), high=("h", "max"), low=("l", "min"), close=("c", "last"),
             last_pos=("pos", "max"), size=("pos", "size"), session=("session", "last"),
         )
-        # 只用「已收完」的大週期K線：累積根數達 htf_bars，或所屬 session 已經結束
-        # （即該 session 不是資料表中最後一個 session）；資料尾端尚未收完的大週期K線一律排除。
+        # 只用「已收完」的大週期K線：累積根數達 htf_bars（分鐘版：最後一根走到分組終點），
+        # 或所屬 session 已經結束（即該 session 不是資料表中最後一個 session）；資料尾端尚未收完的一律排除。
         last_session = df["session"].iat[-1] if n else None
-        htf = htf[(htf["size"] >= self.p.htf_bars) | (htf["session"] != last_session)]
+        sess_arr = df["session"].to_numpy()
+        if self._use_minutes(df):
+            lp = htf["last_pos"].to_numpy()
+            reached = end_ok[lp]
+            sess_last = np.array([p + 1 >= n or sess_arr[p + 1] != sess_arr[p] for p in lp], dtype=bool)
+            # 最後一根未走到終點：收盤最後一組於收盤時完成；日內缺K線者延到下一根（已知進入下一組）才採用
+            avail = np.where(reached | sess_last, lp, lp + 1)
+            keep = reached | np.where(sess_last, htf["session"].to_numpy() != last_session, True)
+            htf = htf.assign(last_pos=avail)[keep]
+        else:
+            htf = htf[(htf["size"] >= self.p.htf_bars) | (htf["session"] != last_session)]
         kdf = kd(htf[["open", "high", "low", "close"]], n=self.p.kd_n,
                   k_period=self.p.k_period, d_period=self.p.d_period)
         k_arr, d_arr = kdf["k"].to_numpy(), kdf["d"].to_numpy()
@@ -142,6 +205,7 @@ class CrossKDNType(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         regime, reset = self._regime(df)
         df["htf_regime"] = regime
         df["ntype_reset"] = reset
@@ -293,6 +357,6 @@ class CrossKDNType(Strategy):
             orders.append(Order.enter(side, stop=stop, reason=name, zero=zero_price, peak=peak_price))
         elif p.big_bar_pullback:
             limit = stop + p.pullback_stop_max * int(side)
-            orders.append(Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
-                                            reason=name + "(補進場)", zero=zero_price, peak=peak_price))
+            orders.append(Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p.max_wait_minutes, p.max_wait),
+                                            stop=stop, reason=name + "(補進場)", zero=zero_price, peak=peak_price))
         return orders or None

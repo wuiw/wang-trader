@@ -108,3 +108,34 @@ def test_red_bar_closing_below_prior_close_breaks_the_run():
         (9995, 9997, 9970, 9975),   # 隔根收黑：若把 1~5 視為連五紅會成立空訊，但連續段只有 3 根
     ])
     assert run(FiveInARowReversal(), bars).signals == []
+
+
+def _long_then_flat_rows():
+    return [
+        (10100, 10105, 10085, 10090),
+        (10090, 10092, 10070, 10075),
+        (10075, 10077, 10055, 10060),
+        (10060, 10062, 10040, 10045),
+        (10045, 10047, 10020, 10025),
+        (10025, 10040, 10022, 10035),  # 買訊，進場 10035（i=5）
+        (10035, 10038, 10030, 10032),  # 經過 5 分鐘，無獲利
+        (10032, 10036, 10028, 10030),  # 經過 10 分鐘，無獲利
+        (10030, 10034, 10026, 10031),
+    ]
+
+
+def test_stale_minutes_exit_when_no_profit():
+    """stale_minutes：持倉經過分鐘數達門檻仍無獲利 → 平倉（p.134 圖6-16，以時間戳計、不綁週期）。"""
+    res = run(FiveInARowReversal(stale_minutes=10), make_bars(_long_then_flat_rows()))
+    t = res.trades[0]
+    assert t.reason_out == "逾時平倉" and t.exit_i == 7
+    # 1 分K 下同樣 10 分鐘尚未到 → 不平倉，由收盤平倉
+    res1 = run(FiveInARowReversal(stale_minutes=10), make_bars(_long_then_flat_rows(), freq="1min"))
+    assert res1.trades[0].reason_out == "收盤平倉"
+
+
+def test_stale_minutes_takes_precedence_over_bars():
+    res = run(FiveInARowReversal(stale_minutes=10, stale_bars=1), make_bars(_long_then_flat_rows()))
+    assert res.trades[0].exit_i == 7
+    res_bars = run(FiveInARowReversal(stale_bars=1), make_bars(_long_then_flat_rows()))
+    assert res_bars.trades[0].exit_i == 6  # 預設 stale_minutes=None → 用根數

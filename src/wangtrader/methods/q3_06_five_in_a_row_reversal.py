@@ -10,8 +10,9 @@
     上影線 ≤5點或≤實體1/5；隔一根K線收黑、上影線未創新高，且收盤未跌破最後一根紅K最低點。
 進場（p.121, 124, 126）：反色K線收盤確認後立即市價進場，書中未提及需等拉回。
 停損（p.124, 126）：固定20點，以訊號K（反色K線）收盤價為基準；書中未提及反手機制。
-出場：書中未明確訂出停利／移動停損規則（p.135待確認事項）；可選 stale_bars（逾時無獲利平倉，
-  書中為建議語氣、非嚴格規則，p.135，預設關閉）。
+出場：書中未明確訂出停利／移動停損規則（p.135待確認事項）；可選逾時無獲利平倉（書中為建議語氣、
+  非嚴格規則，p.134 圖6-16「拖超過一個小時以上」，預設關閉）：stale_minutes（以K線時間戳計算經過分鐘，不綁週期；
+  開啟時照原文建議設 60）或 stale_bars（根數）；兩者都設時以 stale_minutes 為準。
 
 過濾（§7）：
   F1 隔根反色K線創新低（多方情境，用「影線」即最低價判斷）／創新高（空方情境，用最高價判斷）
@@ -42,6 +43,14 @@ from wangtrader.core import Context, Order, Side, Strategy
 METHOD_ID = "q3-06"
 
 
+def _elapsed_minutes(df: pd.DataFrame, a: int, b: int) -> float | None:
+    """第 a 根到第 b 根K線經過的分鐘數（用 time 欄）；time 欄不是時間戳時回傳 None。"""
+    try:
+        return (df.at[b, "time"] - df.at[a, "time"]).total_seconds() / 60.0
+    except (TypeError, AttributeError):
+        return None
+
+
 @dataclass
 class Params:
     min_run: int = 5  # 連續同色K最少根數（p.121）
@@ -51,6 +60,7 @@ class Params:
     shadow_max_ratio: float = 1.0 / 5  # 影線濾網：占實體比例上限（p.128-129）
     stop_points: float = 20.0  # 停損點數，以訊號K收盤價為基準（p.124, 126）
     stale_bars: int | None = None  # 可選：持倉逾N根仍無獲利即平倉（p.135，書中為建議、非嚴格規則，預設關閉）
+    stale_minutes: float | None = None  # 同上，改以經過分鐘計（p.134 圖6-16「超過一個小時」→ 開啟時設 60）；優先於 stale_bars
     no_entry_after: time | None = None  # F5：距收盤不到1小時忽略（p.123）；時鐘時間規則，預設關閉
 
 
@@ -161,9 +171,13 @@ class FiveInARowReversal(Strategy):
                     orders = [Order.enter(Side.SHORT, stop=stop, reason="連五紅遇首黑",
                                            run_start=start, run_last=last)]
 
-        if orders is None and ctx.pos is not None and p.stale_bars is not None:
-            held = i - ctx.pos.entry_i
-            if held >= p.stale_bars and ctx.pos.profit(float(b["close"])) <= 0:
+        if orders is None and ctx.pos is not None and (p.stale_minutes is not None or p.stale_bars is not None):
+            mins = _elapsed_minutes(df, ctx.pos.entry_i, i) if p.stale_minutes is not None else None
+            if mins is not None:
+                stale = mins >= p.stale_minutes
+            else:  # 未設分鐘版或 time 欄不是時間戳 → 退回根數
+                stale = p.stale_bars is not None and i - ctx.pos.entry_i >= p.stale_bars
+            if stale and ctx.pos.profit(float(b["close"])) <= 0:
                 orders = [Order.exit("逾時平倉")]
 
         self._update_run(df, i, st)

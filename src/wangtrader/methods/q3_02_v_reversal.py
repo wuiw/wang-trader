@@ -9,7 +9,7 @@
   頂倒V（空）：兩根上漲紅K，第二根紅K須是當下盤中「唯一」最高K線；
     其後黑K最高點須低於該紅K最高點，且收盤跌破其最低點（破一低）。
 進場（p.50–51, 54, 57）：訊號K收盤時，距極端點（第二根同向K的高/低點）≤ stop_points
-  → 立刻進場；距離較大 → far_entry_mode："pullback" 補進場等待拉回（限價，max_wait 根內未成交
+  → 立刻進場；距離較大 → far_entry_mode："pullback" 補進場等待拉回（限價，max_wait 根（或 max_wait_minutes 分鐘）內未成交
   即失效）、"direct" 直接進場但停損固定 stop_points、"ignore" 忽略（p.50 三種皆可）。
   分級進場（p.53）：
     tier1（大K線）：反向K實體 > stop_points 且收盤距真實極端點 ≤ large_bar_direct_range（30）
@@ -55,6 +55,30 @@ from wangtrader.core.indicators import sar, sma
 METHOD_ID = "q3-02"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 
 def _elapsed_minutes(df: pd.DataFrame, entry_i: int, i: int) -> float:
     """進場K線到第 i 根K線經過的分鐘數（用 prepare() 保留的 time 欄；非時間戳時退回根數）。"""
@@ -69,6 +93,7 @@ class Params:
     stop_points: float = 20.0  # 單筆最大風險（p.50）
     stop_tick: float = 1.0  # 極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
     max_wait: int = 10  # 補進場等待根數；書未載明具體根數（推論，比照 q3-01 預設）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     far_entry_mode: str = "pullback"  # 距離 > stop_points 時："pullback" | "direct" | "ignore"（p.50）
     large_bar_direct_range: float = 30.0  # tier1：反向K實體 > stop_points 且收盤距極端點 ≤ 此值 → 直接進場（p.53）
     large_bar_threshold: float | None = 30.0  # tier2：反向K實體 > 此值（超大K線）→ 改用中點基準（p.53-54）
@@ -182,7 +207,7 @@ class VReversal(Strategy):
                 return Order.enter(side, stop=stop, reason=name + "(超大K)", extreme=ext, vsignal=True)
             limit = mid + p.stop_points * int(side)
             stop = limit - p.stop_points if side == Side.LONG else limit + p.stop_points
-            return Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
+            return Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=stop,
                                      reason=name + "(超大K補進場)", extreme=ext, vsignal=True)
         # tier1：大K線，收盤距真實極端點在 large_bar_direct_range 以內 → 直接進場（p.53）
         if dist > p.stop_points and body_pts > p.stop_points and dist <= p.large_bar_direct_range:
@@ -195,7 +220,7 @@ class VReversal(Strategy):
                                extreme=ext, vsignal=True)
         if p.far_entry_mode == "pullback":
             limit = ext + p.stop_points * int(side)
-            return Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=self._stop(side, limit, ext),
+            return Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=self._stop(side, limit, ext),
                                      reason=name + "(補進場)", extreme=ext, vsignal=True)
         return None  # far_entry_mode == "ignore"
 

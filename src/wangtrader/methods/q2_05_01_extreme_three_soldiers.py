@@ -33,6 +33,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import pandas as pd
@@ -45,6 +46,39 @@ from wangtrader.core.pivots import Pivot, find_pivots
 METHOD_ID = "q2-05-01"
 
 
+def _trade_minutes(df: pd.DataFrame) -> pd.Series:
+    """累計交易分鐘（供「原文以時間描述」的分鐘版參數用）：同一交易日內取相鄰K線 time 差；交易日第一根
+    只計一根K線長（沿用之前最近一次的日內時間差，無則 0），不含休市時間，跨日計時與根數語意一致。
+    只用當下及之前的時間戳；time 非時間戳時全為 NaN（呼叫端退回根數）。"""
+    t = df["time"] if "time" in df.columns else None
+    if t is None or not pd.api.types.is_datetime64_any_dtype(t):
+        return pd.Series(float("nan"), index=df.index)
+    step = t.diff().dt.total_seconds() / 60.0
+    if "session" in df.columns:
+        step = step.where(df["session"].eq(df["session"].shift()))
+    return step.fillna(step.ffill()).fillna(0.0).cumsum()
+
+
+def _elapsed(df: pd.DataFrame, a: int, b: int, minutes: float | None, bars: float | None) -> tuple[float, float | None]:
+    """第 a 根到第 b 根的經過量與上限：minutes 有設且有交易分鐘欄（trade_min）時回傳（經過分鐘, minutes），
+    否則退回（經過根數, bars）。"""
+    if minutes is not None and "trade_min" in df.columns:
+        m = df.at[b, "trade_min"] - df.at[a, "trade_min"]
+        if m == m:
+            return float(m), minutes
+    return float(b - a), bars
+
+
+def _wait_bars(df: pd.DataFrame, i: int, minutes: float | None, bars: int) -> int:
+    """補進場等待根數：minutes 有設且有交易分鐘欄時，依本根K線長（與前一根的交易分鐘差）換算成根數
+    （無條件進位、至少 1）；否則用 bars。"""
+    if minutes is not None and "trade_min" in df.columns and i > 0:
+        step = df.at[i, "trade_min"] - df.at[i - 1, "trade_min"]
+        if step == step and step > 0:
+            return max(1, math.ceil(minutes / step - 1e-9))
+    return bars
+
+
 @dataclass
 class Params:
     level: int = 2  # 峰谷點層級（p.157，層級2轉折點）
@@ -55,6 +89,7 @@ class Params:
     skip_when_over_max_range: bool = False  # 幅度超過上限時：False=補進場等拉回；True=直接忽略（書中(a)(b)並列，見12）
     stop_max: float = 20.0  # 停損控制上限，亦作補進場之目標距離（p.157–158, 163）
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，比照 q3-01 慣例預設，見12）
+    max_wait_minutes: float | None = None  # 補進場等待分鐘（推論值無時間依據，預設 None＝用 max_wait 根）
     stopped_no_repeat: bool = True  # F5：同方向訊號被停損後本交易日不再使用（p.163）
     exit_mode: str = "retrace"  # "retrace" | "ladder" | "none"
     retrace_target: float = 15.0  # 折返停利：獲利超過15點後折返進場點出場（p.171）
@@ -71,6 +106,7 @@ class ExtremeThreeSoldiers(Strategy):
 
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df["trade_min"] = _trade_minutes(df)
         self._pivots = find_pivots(df, level=self.p.level, strict=False)  # 允許等低/等高（p.162）
         return df
 
@@ -151,9 +187,9 @@ class ExtremeThreeSoldiers(Strategy):
         if amp > p.max_range:
             if p.skip_when_over_max_range:
                 return None
-            return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=ext,
-                                       reason=name + "(補進場)", extreme=ext)]
+            return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p.max_wait_minutes, p.max_wait),
+                                       stop=ext, reason=name + "(補進場)", extreme=ext)]
         if abs(c["close"] - ext) <= p.stop_max:
             return [Order.enter(side, stop=ext, reason=name, extreme=ext)]
-        return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=ext,
-                                   reason=name + "(補進場)", extreme=ext)]
+        return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p.max_wait_minutes, p.max_wait),
+                                   stop=ext, reason=name + "(補進場)", extreme=ext)]

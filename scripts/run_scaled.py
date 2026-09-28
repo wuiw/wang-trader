@@ -5,7 +5,8 @@
 本腳本額外跑一組「點數門檻依當時價位等比例放大」的版本，與 `run_individual.py`（原始固定門檻）對照。
 
 作法：
-  - 依「月份」切段；每段的縮放倍數 = 該月第一根K棒開盤價 / REF_PRICE[書]（q2:8500 / q3:10000），
+  - 依「月份」切段；每段的縮放倍數 = 該月第一根K棒開盤價 / ref_price(方法)（見 `point_params.py`：
+    先查 REF_PRICE_BY_METHOD，再依前綴回退 REF_PRICE，q2:8500 / q3:10000 / gq:7000 / sg:17000），
     只用當時已知（該月第一根K棒）的資料，不偷看未來。
   - 每段用縮放後的參數（見 `point_params.py` 的 POINT_PARAMS 分類）建立新的策略實例來跑；
     為了讓平盤、昨高低、各種指標（MA/RSI/KD…）有暖身，每段往前多帶 N 個交易日（預設5，
@@ -47,7 +48,7 @@ INDIVIDUAL_SUMMARY = ROOT / "results" / "individual" / "summary.csv"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_individual import metrics, strategy_classes, tf_kwargs  # noqa: E402
 
-from point_params import POINT_PARAMS, REF_PRICE  # noqa: E402
+from point_params import POINT_PARAMS, ref_price  # noqa: E402
 from wangtrader.core import Order, Strategy, run as engine_run  # noqa: E402
 
 DEFAULT_WARMUP_DAYS = 5
@@ -139,18 +140,11 @@ def build_segments(df: pd.DataFrame, warmup_days: int) -> list[dict]:
 def one(args) -> tuple[dict, pd.DataFrame | None]:
     name, tf, cost, warmup_days, force_scale = args
     cls = strategy_classes()[name]
-    if name.startswith("q2"):
-        ref = REF_PRICE["q2"]
-    elif name.startswith("gq"):
-        ref = REF_PRICE["gq"]
-    elif name.startswith("sg"):
-        ref = REF_PRICE["sg"]
-    else:
-        ref = REF_PRICE["q3"]
     df = pd.read_parquet(DATA / f"tx_day_{tf}min.parquet")
     t0 = time.time()
     wd = WARMUP_OVERRIDE_DEFAULT.get(name, warmup_days)
     try:
+        ref = ref_price(name)
         segs = build_segments(df, wd)
         all_trades = []
         scales_used = []

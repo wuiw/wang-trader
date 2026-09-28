@@ -128,3 +128,25 @@ def test_conditional_reversal_without_15pts():
     assert rev.side == Side.SHORT and "反手" in rev.reason and rev.stop == 10003
     assert res.trades[0].reason_out == "停損"
     assert res.trades[1].side == Side.SHORT and res.trades[1].entry_price == 9983
+
+
+def test_wait_bars_minutes_converted_by_bar_interval():
+    """max_wait_minutes：以同交易日相鄰K線時間差換成根數；None 或 time 欄非時間戳時用 max_wait 根。"""
+    from helpers import make_bars as _mb
+
+    from wangtrader.core import prepare as _prep
+    from wangtrader.methods.q3_04_tit_for_tat import Params as _P, _wait_bars
+
+    df = _prep(_mb([(100, 101, 99, 100)] * 6, freq="3min"))
+    assert _wait_bars(df, 5, _P()) == 10
+    assert _wait_bars(df, 5, _P(max_wait_minutes=10)) == 3
+    assert _wait_bars(df, 5, _P(max_wait_minutes=1)) == 1
+    assert _wait_bars(df.assign(time=range(len(df))), 5, _P(max_wait_minutes=10)) == 10
+
+
+def test_reversal_stop_points_parameter():
+    """反手停損：stop_points 有值時用 stop_points；stop_points=None 時改用 reversal_stop_points（原寫死 20）。"""
+    assert TitForTat()._reversal_stop() == 20.0
+    assert TitForTat(stop_points=30.0)._reversal_stop() == 30.0
+    assert TitForTat(stop_points=None)._reversal_stop() == 20.0
+    assert TitForTat(stop_points=None, reversal_stop_points=45.0)._reversal_stop() == 45.0

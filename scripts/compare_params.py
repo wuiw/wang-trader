@@ -2,7 +2,8 @@
 
 對每個參數值各跑兩種版本：
   - 原始：書中固定點數（同 run_individual.py）
-  - 縮放：點數門檻依當月價位等比例放大（同 run_scaled.py）
+  - 縮放：點數門檻依當月價位等比例放大（同 run_scaled.py；參考價用 point_params.ref_price(方法)，
+    即先查 REF_PRICE_BY_METHOD、再依前綴回退 REF_PRICE）
 不修改方法模組預設值；參數以建構子 kwargs 注入。cost 預設 0。
 
 用法：

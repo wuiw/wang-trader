@@ -13,7 +13,8 @@
        過程 RSI 曾觸及 rsi_extreme_high（或極接近，容許 rsi_near_tol，p.255）→ 以推升最高點為
        峰位（C3 水平線）。遇黑K拉回時若 RSI 尚未觸及門檻，峰位不成立，繼續向上尋找（p.253）。
     C4 拉回不可跌破 origin（任何階段，含尚未確認峰位時），且峰位確認後拉回持續不可超過
-       max_pullback_bars；違反任一者 → 取消本段觀察（C5），須等價格再次向上穿越MA才重新追蹤
+       max_pullback_bars 根（或 max_pullback_days 個交易日）；違反任一者 → 取消本段觀察（C5），
+       須等價格再次向上穿越MA才重新追蹤
        （p.249「取消觀察，重新等待突破均線」）。
     C6 K線收盤重新突破峰位水平線 → 買進CALL訊號；訊號後同段行情繼續追蹤下一個峰位（p.249
        「D點突破C高…如果在C沒有進場，最慢在D補進場」）。訊號K線本身收盤須已站上MA100（真正完成
@@ -73,7 +74,9 @@ class Params:
     rsi_extreme_low: float = 10.0  # p.246-247
     rsi_near_tol: float = 1.0  # p.255，RSI極接近門檻亦視為達成（如89.41）
     max_pullback_bars: int = 20  # C5：書中以「天」描述（約1天內佳、逾10天過久），本參數為根數近似值，
-    #                              需依實際週期調整
+    #                              需依實際週期調整（max_pullback_days=None 時使用）
+    max_pullback_days: float | None = None  # C5 交易日版：峰位確認後經過的交易日（session）數 > 此值即取消；
+    #                                         None＝用 max_pullback_bars。原文 1 天／10 天未定取捨，見規格文件 §12
     ma10_period: int = 10  # p.258，MA10移動停利
     retrace_points: float = 100.0  # p.258-259，創高低反彈折返停利（書中亦提及可用150點）
     fixed_profit_ratio: float = 1.0  # p.257，機制4「賺50%或100%出場」的近似倍數（1.0≈100%、0.5≈50%）
@@ -126,6 +129,13 @@ class OptionSwingBreakout(Strategy):
         return max(0.0, (self._strike(entry, side) - entry) * int(side))
 
     # ---------- 腿的逐根推進 ----------
+    def _pullback_too_long(self, df: pd.DataFrame, st: _LegState, i: int) -> bool:
+        """C5：峰位確認後拉回拖太久。max_pullback_days 有設時以交易日（session 編號差）計，否則以根數計。"""
+        p = self.p
+        if p.max_pullback_days is not None:
+            return int(df.at[i, "session"]) - int(df.at[st.pullback_start, "session"]) > p.max_pullback_days
+        return (i - st.pullback_start) > p.max_pullback_bars
+
     def _step_call(self, df: pd.DataFrame, i: int) -> Order | None:
         p, b, st = self.p, df.iloc[i], self._call
         if b["low"] < st.origin:  # C4：跌破起漲谷點 → 取消觀察，等待重新突破均線（p.249）
@@ -142,7 +152,7 @@ class OptionSwingBreakout(Strategy):
             if black and not new_high and st.rsi_hit:  # 遇黑K不再創新高的拉回 + RSI 曾觸及（p.253）
                 st.confirmed, st.pullback_start = st.cand, i
             return None  # RSI 未觸及門檻 → 峰位不成立，繼續向上尋找
-        if (i - st.pullback_start) > p.max_pullback_bars:  # C5：拉回拖太久
+        if self._pullback_too_long(df, st, i):  # C5：拉回拖太久
             self._call = None
             return None
         if b["close"] > st.confirmed and b["close"] > b["ma"]:  # C6 + 訊號K須收在MA100同側（p.256）
@@ -173,7 +183,7 @@ class OptionSwingBreakout(Strategy):
             if red and not new_low and st.rsi_hit:  # 遇紅K不再創新低的反彈 + RSI 曾觸及（p.253）
                 st.confirmed, st.pullback_start = st.cand, i
             return None
-        if (i - st.pullback_start) > p.max_pullback_bars:  # C5'
+        if self._pullback_too_long(df, st, i):  # C5'
             self._put = None
             return None
         if b["close"] < st.confirmed and b["close"] < b["ma"]:  # C6' + 訊號K須收在MA100同側（p.256，鏡像）

@@ -57,12 +57,37 @@ from wangtrader.core.indicators import sma
 METHOD_ID = "q3-08-02"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     ma_period: int = 10  # MA10（p.177）
     stop_points: float = 20.0  # 停損點數（延用均線順向策略，圖8-31）
     large_bar_mode: str = "wait"  # 「大K線」處理（延用均線順向策略 p.162-163）："wait"（補進場，預設）| "midpoint"
     max_wait: int = 10  # 補進場等待根數（延用均線順向策略慣例）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     turn_dist_min: float = 10.0  # F2（p.182）
     carryover_open_dist_max: float = 60.0  # F4（p.184-185）
     strict_distance: bool = True  # False：關閉F2/F4（海外商品）
@@ -231,7 +256,7 @@ class PigYang(Strategy):
             mid = (float(b["open"]) + c) / 2.0
             return [Order.enter(side, stop=mid, reason=name + "(大K線)")]
         limit = ext + p.stop_points * int(side)  # 多：低點+20；空：高點-20
-        return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=ext, reason=name + "(補進場)")]
+        return [Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=ext, reason=name + "(補進場)")]
 
 
 def _five_reversal_exhaustion(

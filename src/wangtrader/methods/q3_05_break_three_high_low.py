@@ -47,6 +47,30 @@ from wangtrader.core.pivots import Pivot, confirmed_before, find_pivots
 METHOD_ID = "q3-05"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     lookback: int = 3  # 前N根比較區間，C2/C3（p.101, p.104-105）
@@ -56,6 +80,7 @@ class Params:
     ignore_beyond: float = 40.0  # 距極端 >此值通常忽略（p.112-113）
     far_entry_mode: str = "pullback"  # 20~40點區間："pullback" 等拉回 | "direct" 直接進場 | "ignore"
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，沿用範本慣例）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     reversal_profit_threshold: float = 15.0  # 停損反手資格門檻：未達此獲利觸停損才可反手（p.113）
     require_pivot_after_gap: bool = True  # 跳空前提（p.103），原文明文規則，預設開啟
     pivot_level: int = 1  # 層級1峰谷點（p.103）
@@ -150,7 +175,7 @@ class BreakThreeHighLow(Strategy):
             return max(ext - p.stop_tick, entry - p.stop_points)
         return min(ext + p.stop_tick, entry + p.stop_points)
 
-    def _entry_orders(self, side: Side, close: float, ext: float, reason: str) -> list[Order]:
+    def _entry_orders(self, side: Side, close: float, ext: float, reason: str, wait: int) -> list[Order]:
         p = self.p
         sgn = int(side)
         dist = abs(close - ext)
@@ -162,7 +187,7 @@ class BreakThreeHighLow(Strategy):
             return [Order.enter(side, stop=self._stop(side, close, ext), reason=reason + "(直接進場)")]
         if p.far_entry_mode == "pullback":
             limit = ext + p.immediate_distance * sgn
-            return [Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=self._stop(side, limit, ext),
+            return [Order.enter_limit(side, limit=limit, expire=wait, stop=self._stop(side, limit, ext),
                                       reason=reason + "(補進場)")]
         return []  # far_entry_mode == "ignore"
 
@@ -220,7 +245,7 @@ class BreakThreeHighLow(Strategy):
                     if side == Side.SHORT and gap_down and not self._has_pivot(df, i, sess, "peak"):
                         ok = False
                 if ok:
-                    orders = self._entry_orders(side, float(b["close"]), ext, name)
+                    orders = self._entry_orders(side, float(b["close"]), ext, name, _wait_bars(df, i, p))
                     if orders:
                         body_lo = float(min(b["open"], b["close"]))
                         body_hi = float(max(b["open"], b["close"]))

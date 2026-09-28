@@ -14,7 +14,7 @@
     極端位置訊號一樣」→ 套用 30/40 點極端位置判定（is_extreme_position），require_extreme 開關控制。
 進場（p.84, 87）：訊號K（B）收盤確認後，若距A的極端點 ≤ stop_points 立即以收盤價進場（方向與B
   同向，即與A相反）；距離較大（>20點，圖4-4）則等拉回/反彈至距離縮小到 stop_points 以內再補進場
-  （限價，max_wait 根內未成交即失效）。
+  （限價，max_wait 根（或 max_wait_minutes 分鐘）內未成交即失效）。
 停損（p.87, 90-91）：設在 A 的極端點（穿越 stop_tick 即出場），但距進場價最多 stop_points
   （預設 20 點）。設 stop_points=None 則不設停損。
 過濾：
@@ -49,18 +49,44 @@ from wangtrader.core.indicators import sar, sma
 METHOD_ID = "q3-04"
 
 
+def _wait_bars(df: pd.DataFrame, i: int, p) -> int:
+    """補進場有效根數：max_wait_minutes 為 None 時用 max_wait 根；否則把分鐘換成根數——以第 i 根（含）
+    以前、同交易日相鄰K線的最小時間差當作K線週期（只用已發生的K線，不寫死週期）；time 欄不是時間戳
+    或找不到相鄰K線時退回 max_wait 根。"""
+    minutes, fallback = p.max_wait_minutes, p.max_wait
+    if minutes is None:
+        return fallback
+    t, s = df["time"], df["session"]
+    step = None
+    k = i
+    while k > 0 and k > i - 20:
+        if s.iat[k] == s.iat[k - 1]:
+            try:
+                d = (t.iat[k] - t.iat[k - 1]).total_seconds() / 60.0
+            except (TypeError, AttributeError):
+                return fallback
+            if d > 0:
+                step = d if step is None else min(step, d)
+        k -= 1
+    if step is None:
+        return fallback
+    return max(1, int(minutes / step + 1e-9))
+
+
 @dataclass
 class Params:
     tolerance_points: float = 1.0  # p.84, 96
     stop_points: float | None = 20.0  # 單筆最大風險（推論：全書一貫 20 點）；None = 不設停損
     stop_tick: float = 1.0  # A 極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
     max_wait: int = 10  # 補進場等待根數（書中未給明確數字，沿用第一章慣例，p.87）
+    max_wait_minutes: float | None = None  # 補進場有效分鐘數；None＝用 max_wait 根數（預設）。原文未寫時間，見規格文件 §12
     require_extreme: bool = True  # 極端位置前提（p.84「定義和前面所有極端位置訊號一樣」）
     extreme_range: float = 30.0  # p.49, 57（第二章定義）
     extreme_from_prev_close: float = 40.0
     same_side_stop_once: bool = True  # F3，p.92
     retrace_trigger: float = 15.0  # 折返平倉／反手資格門檻（p.90-91）
     reversal_enabled: bool = True  # p.91；書中未提示台指不宜使用，預設開啟
+    reversal_stop_points: float = 20.0  # 反手單停損點數，只在 stop_points=None 時使用（原寫死 20，推論：全書一貫 20 點）
     exit_mode: str = "none"  # 推論；書中未提供本訊號另外的移動停利規則
     profit_target: float = 20.0
     ma_period: int = 10
@@ -110,6 +136,10 @@ class TitForTat(Strategy):
                 return Side.LONG, float(a["low"])
         return None
 
+    def _reversal_stop(self) -> float:
+        """反手單停損點數：stop_points；stop_points=None（不設停損）時改用 reversal_stop_points。"""
+        return self.p.stop_points or self.p.reversal_stop_points
+
     def _stop(self, side: Side, entry: float, ext: float) -> float | None:
         """停損＝A 極端點外 stop_tick，但距進場價最多 stop_points（p.87, 90-91）。"""
         p = self.p
@@ -150,10 +180,10 @@ class TitForTat(Strategy):
                     close = float(df.at[i, "close"])
                     if lvl is not None:
                         if t.side == Side.LONG and close < lvl:
-                            order = Order.enter(Side.SHORT, stop=close + (p.stop_points or 20.0),
+                            order = Order.enter(Side.SHORT, stop=close + self._reversal_stop(),
                                                 reason="以牙還牙(反手)", reversal=True)
                         elif t.side == Side.SHORT and close > lvl:
-                            order = Order.enter(Side.LONG, stop=close - (p.stop_points or 20.0),
+                            order = Order.enter(Side.LONG, stop=close - self._reversal_stop(),
                                                 reason="以牙還牙(反手)", reversal=True)
 
         if order is None:
@@ -175,7 +205,7 @@ class TitForTat(Strategy):
                         else:  # 距離 >20 點：等拉回至距A極端點 stop_points 內再補進場（p.87）
                             limit = ext + p.stop_points * int(side)
                             stop = self._stop(side, limit, ext)
-                            order = Order.enter_limit(side, limit=limit, expire=p.max_wait, stop=stop,
+                            order = Order.enter_limit(side, limit=limit, expire=_wait_bars(df, i, p), stop=stop,
                                                       reason=name + "(補進場)", extreme=ext,
                                                       stop_level=stop, tft_signal=True)
 
