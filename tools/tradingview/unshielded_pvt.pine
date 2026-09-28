@@ -1,6 +1,6 @@
 //@version=6
 // =============================================================================
-// 無遮蔽原則（WANG 狀態機）＋ PVT 通道（趨勢階梯）＋ 三條均線
+// 無遮蔽原則（WANG 狀態機）＋ PVT 通道（趨勢階梯，可用 N 倍週期計算）＋ 三條均線（1x／3x）
 //
 // 邏輯來源（本專案）：
 //   無遮蔽：methods/期貨奇績1/wang_unshielded.afl（WANG 區段）
@@ -9,11 +9,18 @@
 //   PVT  ：methods/期貨奇績2/q2-03-01-PVT通道N型訊號.md §3.1
 //           src/wangtrader/methods/q2_03_01_pvt_n_type.py
 //           （_groups／_find_level_pivots／_update_ladder／_reseed／on_bar 步驟 1–2）
+//   N 倍週期：scripts/direction_unshielded_pvt.py 的「3倍」實驗（map_htf lag=True）：
+//           大週期 K 棒收完後，從第一根開始時刻 ≥ 大週期收盤時刻的小週期 K 棒起才採用新狀態。
+// 畫法參考（唯讀）：WM-Trading pine/mode1_subcycle_confirm.pine
+//   - 高週期 OHLC 手動聚合（不用 request.security，可用 Python 逐根移植驗證）
+//   - 1x 細線／3x 粗線、發展中（dev）與已確認（conf）分開、可開關
+//   - 訊號三角形＋文字，條件不符改灰色；display.data_window 輸出數值
 // 驗證：tools/tradingview/verify_unshielded_pvt.py（以 Python 模擬本檔逐根語意，與上述 Python 逐根比對）
 // 說明：tools/tradingview/README.md
 //
 // 配色照 AFL 與台灣慣例：紅＝多、綠＝空。
-// 所有訊號與階梯只用本根及之前的資料；PVT 轉折點在右側 level 根收完後才確認（與 Python 相同延遲）。
+// 所有訊號與已確認階梯只用本根及之前的資料；PVT 轉折點在右側 level 根（大週期）收完後才確認。
+// 「發展中暫定階梯」只是把尚未收完的大週期 K 棒當成已收完試算，會隨盤中變動，不影響已確認的階梯與方向。
 // =============================================================================
 indicator("無遮蔽原則 + PVT 通道 + 均線", shorttitle = "Unshielded+PVT", overlay = true, max_labels_count = 500)
 
@@ -28,36 +35,65 @@ string DM_TF   = "新交易日 timeframe.change(D)"
 string DM_SESS = "session.isfirstbar"
 string DM_AFL  = "AFL 原樣：TimeNum 倒退"
 
+string TF1 = "1x"
+string TF3 = "3x"
+string M3_DEV  = "發展中（含未收完的 3x K）"
+string M3_CONF = "僅已收完的 3x K"
+
 string dayMode = input.string(DM_TF, "換日判斷", options = [DM_TF, DM_SESS, DM_AFL], group = G_US,
-     tooltip = "無遮蔽狀態機的每日重設，以及 PVT 轉折點的分日計算，都用這個判斷。AFL 原本用 TimeNum 倒退判斷換日（夜盤會在午夜換日），預設改用新交易日。")
+     tooltip = "無遮蔽狀態機的每日重設、PVT 轉折點的分日計算、N 倍週期與 3x 均線的每日起算點，都用這個判斷。AFL 原本用 TimeNum 倒退判斷換日（夜盤會在午夜換日），預設改用新交易日。")
 bool usFixInit = input.bool(false, "修正初值 0 疑點（預設照原樣）", group = G_US,
      tooltip = "照原樣：跟 AFL 一樣從第 3 根（bar_index 2）開始，所有狀態初值為 0，圖表起點可能出現假多單（疑點 5.1、5.7）。修正：從第 1 根開始，並把第 1 根當成重設根。")
-bool usShowSig   = input.bool(true, "顯示多／空訊號", group = G_US)
+bool usShowSig   = input.bool(true, "顯示多／空訊號（▲多 紅、▼空 綠）", group = G_US)
+bool usGrayMis   = input.bool(false, "訊號與 PVT 方向不一致時改灰色", group = G_US,
+     tooltip = "PVT 方向依「PVT 計算週期倍數」取已確認的控盤方向。多單訊號當根方向不是多（空方或尚未確立）就畫灰色；空單鏡像。只改顏色，不刪訊號、不影響警示。")
 bool usShowLineS = input.bool(true, "顯示空方無遮蔽線", group = G_US, inline = "ls")
 color usColS     = input.color(color.new(color.blue, 0), "", group = G_US, inline = "ls")
 bool usShowLineL = input.bool(true, "顯示多方無遮蔽線", group = G_US, inline = "ll")
 color usColL     = input.color(color.new(color.orange, 0), "", group = G_US, inline = "ll")
 
+int pvtMult      = input.int(1, "PVT 計算週期倍數", minval = 1, maxval = 60, group = G_PVT,
+     tooltip = "1＝用圖表週期計算。N>1＝把圖表 K 棒每日從開盤起、每 N 根時間長度手動聚合成大週期 K 棒（不跨日、不用 request.security），在大週期上算轉折點、階梯與控盤方向；大週期 K 棒收完後，從下一根圖表 K 棒起才更新。方向判斷驗證：PVT 層級 4 用 15 分K（5 分圖設 3）效果最好。")
 int pvtLevel     = input.int(2, "轉折點層級", minval = 2, group = G_PVT,
-     tooltip = "書中可用層級 2、4、10（p.93）。Python 預設 2。層級 1 在 Python 版會偷看一根，這裡不開放。")
+     tooltip = "書中可用層級 2、4、10（p.93）。Python 預設 2。層級 1 在 Python 版會偷看一根，這裡不開放。倍數 N>1 時，層級以大週期 K 棒計。")
 float pvtIgnore  = input.float(2.0, "階梯忽略差距（點）", minval = 0.0, group = G_PVT,
      tooltip = "兩個轉折點差距 ≤ 此值時忽略比較、階梯不動（p.96），對應 Python ladder_ignore_diff。")
 bool pvtShowBear = input.bool(true, "顯示上緣（空趨勢階梯）", group = G_PVT, inline = "pu")
 color pvtColBear = input.color(color.new(color.green, 0), "", group = G_PVT, inline = "pu")
 bool pvtShowBull = input.bool(true, "顯示下緣（多趨勢階梯）", group = G_PVT, inline = "pd")
 color pvtColBull = input.color(color.new(color.red, 0), "", group = G_PVT, inline = "pd")
+int pvtW1        = input.int(2, "階梯線寬：倍數 1", minval = 1, maxval = 10, group = G_PVT, inline = "pw")
+int pvtWN        = input.int(3, "倍數 >1", minval = 1, maxval = 10, group = G_PVT, inline = "pw")
+bool pvtShowDev  = input.bool(true, "倍數 >1 時顯示發展中暫定階梯", group = G_PVT,
+     tooltip = "把尚未收完的大週期 K 棒當成已收完試算出來的上緣／下緣（細線、淡色）。盤中會變動；大週期收完後，下一根起由已確認階梯接手。不影響已確認階梯、控盤方向與訊號灰色判斷。")
+color pvtColBearDev = input.color(color.new(color.teal, 40), "暫定上緣", group = G_PVT, inline = "pdev")
+color pvtColBullDev = input.color(color.new(color.fuchsia, 40), "暫定下緣", group = G_PVT, inline = "pdev")
 bool pvtShowBg   = input.bool(false, "背景色顯示控盤方向", group = G_PVT,
-     tooltip = "依書中 p.94、p.97：收盤突破空趨勢階梯＝多方控盤（紅底），收盤跌破多趨勢階梯＝空方控盤（綠底）。")
+     tooltip = "依書中 p.94、p.97：收盤突破空趨勢階梯＝多方控盤（紅底），收盤跌破多趨勢階梯＝空方控盤（綠底）。用已確認方向。")
 
 bool maShowSma  = input.bool(true, "SMA", group = G_MA, inline = "sma")
-int maSmaLen    = input.int(50, "週期", minval = 1, group = G_MA, inline = "sma")
+int maSmaLen    = input.int(50, "", minval = 1, group = G_MA, inline = "sma")
+string maSmaTf  = input.string(TF1, "", options = [TF1, TF3], group = G_MA, inline = "sma")
 color maSmaCol  = input.color(color.new(color.yellow, 0), "", group = G_MA, inline = "sma")
 bool maShowLsma = input.bool(true, "LSMA", group = G_MA, inline = "lsma")
-int maLsmaLen   = input.int(100, "週期", minval = 1, group = G_MA, inline = "lsma")
+int maLsmaLen   = input.int(100, "", minval = 2, group = G_MA, inline = "lsma")
+string maLsmaTf = input.string(TF1, "", options = [TF1, TF3], group = G_MA, inline = "lsma")
 color maLsmaCol = input.color(color.new(color.purple, 0), "", group = G_MA, inline = "lsma")
 bool maShowHma  = input.bool(true, "HMA", group = G_MA, inline = "hma")
-int maHmaLen    = input.int(50, "週期", minval = 1, group = G_MA, inline = "hma")
+int maHmaLen    = input.int(50, "", minval = 2, group = G_MA, inline = "hma")
+string maHmaTf  = input.string(TF1, "", options = [TF1, TF3], group = G_MA, inline = "hma")
 color maHmaCol  = input.color(color.new(color.aqua, 0), "", group = G_MA, inline = "hma")
+bool maDirCol   = input.bool(false, "均線依方向著色（紅上彎／綠下彎／灰未定）", group = G_MA,
+     tooltip = "WM-Trading 的 MTS 線畫法。開啟時三條線都改用方向色，只能靠線寬與位置區分；關閉時用上面各自的顏色。")
+int maW1        = input.int(1, "線寬：1x", minval = 1, maxval = 10, group = G_MA, inline = "mw")
+int maW3        = input.int(3, "3x", minval = 1, maxval = 10, group = G_MA, inline = "mw")
+string ma3Mode  = input.string(M3_DEV, "3x 均線取值", options = [M3_DEV, M3_CONF], group = G_MA,
+     tooltip = "發展中：以已收完的 3x 收盤＋目前未收完 3x K 的最新收盤計算（同 WM-Trading 的 *_dev，盤中重繪，3x K 收完那根即定案）。僅已收完：只用已收完的 3x K（階梯狀、不重繪、慢一拍）。")
+
+// 顏色常數（台灣慣例）
+color COL_LONG  = color.red
+color COL_SHORT = color.green
+color COL_GRAY  = color.new(color.gray, 0)
 
 // ---------------------------------------------------------------------------
 // 換日判斷（每根都在全域計算，避免條件式呼叫帶歷史的函式）
@@ -67,6 +103,16 @@ bool dayTf   = timeframe.change("D")
 bool daySess = session.isfirstbar
 bool dayAfl  = bar_index > 0 and tn[1] > tn                              // CurrentTime[i-1] > CurrentTime[i]
 bool isNewDay = dayMode == DM_TF ? dayTf : dayMode == DM_SESS ? daySess : dayAfl
+
+// 高週期分組：每個交易日從第一根 K 棒的開始時刻起算，每 mult × 圖表週期一組（不跨日）。
+// 與 scripts/direction_unshielded_pvt.py build_mtf 的 resample(origin=每日 08:45) 相同（日盤第一根即 08:45）。
+var int dayT0 = na
+if isNewDay or na(dayT0)
+    dayT0 := time
+float tfMs = timeframe.in_seconds() * 1000.0
+f_gid(int mult) =>
+    int(math.floor((time - dayT0) / (mult * tfMs)))
+bool firstBar = bar_index == 0
 
 // =============================================================================
 // 一、無遮蔽原則（WANG 狀態機）
@@ -138,19 +184,11 @@ if usActive
         else if high > lineL
             lineL := high          // 多方無遮蔽線上移
 
-plot(usShowLineS ? chkLineS : na, title = "空方無遮蔽線", color = usColS, linewidth = 1, style = plot.style_linebr)
-plot(usShowLineL ? chkLineL : na, title = "多方無遮蔽線", color = usColL, linewidth = 1, style = plot.style_linebr)
-plotshape(usShowSig and sigLong, title = "無遮蔽多單", style = shape.triangleup, location = location.belowbar,
-     color = color.red, size = size.small)
-plotshape(usShowSig and sigShort, title = "無遮蔽空單", style = shape.triangledown, location = location.abovebar,
-     color = color.green, size = size.small)
-alertcondition(sigLong, title = "無遮蔽多單", message = "無遮蔽多單訊號 {{ticker}} {{interval}} 收盤 {{close}}")
-alertcondition(sigShort, title = "無遮蔽空單", message = "無遮蔽空單訊號 {{ticker}} {{interval}} 收盤 {{close}}")
-
 // =============================================================================
 // 二、PVT 通道（趨勢階梯）
 //    轉折點：每個交易日各自計算（Python _pivots_by_session），同值平台／變形用 _groups 的
 //    由左而右貪婪分組，逐根增量完成；轉折點在 e + level 根確認（Python _Pivot.confirm）。
+//    倍數 N>1 時，以上全部改在手動聚合的大週期 K 棒上進行（每根大週期 K 收完才推進一次）。
 // =============================================================================
 int MAX_PLATEAU = 4        // Python _MAX_PLATEAU
 
@@ -229,8 +267,59 @@ f_advance(array<float> v, int j0, array<int> pendS, array<int> pendE, int lvl, b
             confirmed := array.get(v, s)
     [j, confirmed]
 
-var array<float> pvH     = array.new<float>()   // 當日 high
-var array<float> pvL     = array.new<float>()   // 當日 low
+// 步驟 1（更新階梯）＋步驟 2（控盤易主），純函式：輸入目前狀態，回傳新狀態。
+// 已確認階梯與發展中暫定階梯共用這一段，暫定試算只拿回傳值、不寫回狀態。
+//   1. Python：先谷點、後峰點；兩兩取孰低／孰高，差距 ≤ 忽略值不動。
+//   2. p.97：收盤突破空趨勢階梯 → 多方；收盤跌破多趨勢階梯 → 空方；
+//      易主當下用最近兩個已確認谷（峰）點孰低（孰高）重建階梯（Python _reseed）。
+f_ladder(float trNew, float pkNew, float c, float ign, float bL0, float bA0, float sL0, float sA0, int rg0, float t10, float t20, float p10, float p20) =>
+    float xBL = bL0     // 多趨勢階梯（通道下緣）  Python st["bull_ladder"]
+    float xBA = bA0     // 上一個被採用的谷點        Python st["bull_adopted"]
+    float xSL = sL0     // 空趨勢階梯（通道上緣）  Python st["bear_ladder"]
+    float xSA = sA0
+    int   xRg = rg0     // 1 多方控盤、-1 空方控盤、0 尚未確立（Python None）
+    float xT1 = t10     // 最近一個已確認谷點（_reseed 用）
+    float xT2 = t20     // 再前一個已確認谷點
+    float xP1 = p10
+    float xP2 = p20
+    if not na(trNew)
+        if na(xBA)
+            xBA := trNew
+        else if math.abs(trNew - xBA) > ign
+            xBL := math.min(xBA, trNew)
+            xBA := trNew
+        xT2 := xT1
+        xT1 := trNew
+    if not na(pkNew)
+        if na(xSA)
+            xSA := pkNew
+        else if math.abs(pkNew - xSA) > ign
+            xSL := math.max(xSA, pkNew)
+            xSA := pkNew
+        xP2 := xP1
+        xP1 := pkNew
+    bool swBull = not na(xSL) and c > xSL and xRg != 1
+    bool swBear = not na(xBL) and c < xBL and xRg != -1
+    if xRg == 0   // 冷啟動（Python 詮釋）：率先被突破／跌破的階梯決定初始方向
+        swBull := swBull or (not na(xBL) and c > xBL)
+        swBear := swBear or (not na(xSL) and c < xSL)
+    if swBull
+        xRg := 1
+        if not na(xT1)
+            float seedB = na(xT2) ? xT1 : math.min(xT1, xT2)
+            xBL := seedB
+            xBA := seedB
+    else if swBear
+        xRg := -1
+        if not na(xP1)
+            float seedS = na(xP2) ? xP1 : math.max(xP1, xP2)
+            xSL := seedS
+            xSA := seedS
+    [xBL, xBA, xSL, xSA, xRg, xT1, xT2, xP1, xP2]
+
+// ---- 已確認狀態（var，跨根保留）----
+var array<float> pvH     = array.new<float>()   // 當日（大週期）high
+var array<float> pvL     = array.new<float>()   // 當日（大週期）low
 var array<int>   pkPendS = array.new<int>()
 var array<int>   pkPendE = array.new<int>()
 var array<int>   trPendS = array.new<int>()
@@ -238,82 +327,303 @@ var array<int>   trPendE = array.new<int>()
 var int pkJ = 0
 var int trJ = 0
 
-var float bullLadder  = na   // 多趨勢階梯（通道下緣）  Python st["bull_ladder"]
-var float bullAdopted = na   // 上一個被採用的谷點        Python st["bull_adopted"]
-var float bearLadder  = na   // 空趨勢階梯（通道上緣）  Python st["bear_ladder"]
+var float bullLadder  = na
+var float bullAdopted = na
+var float bearLadder  = na
 var float bearAdopted = na
-var int   regime      = 0    // 1 多方控盤、-1 空方控盤、0 尚未確立（Python None）
-var float trLast1 = na       // 最近一個已確認谷點（_reseed 用）
-var float trLast2 = na       // 再前一個已確認谷點
+var int   regime      = 0
+var float trLast1 = na
+var float trLast2 = na
 var float pkLast1 = na
 var float pkLast2 = na
 
-if isNewDay
-    array.clear(pvH)
-    array.clear(pvL)
-    array.clear(pkPendS)
-    array.clear(pkPendE)
-    array.clear(trPendS)
-    array.clear(trPendE)
-    pkJ := 0
-    trJ := 0
-array.push(pvH, high)
-array.push(pvL, low)
+// ---- N 倍週期手動聚合（WM-Trading mode1 的 3x OHLC 聚合寫法；只需 high/low/close）----
+// pdH/pdL/pdC：發展中（尚未收完）的大週期 K 棒；pdNewDay：它是否為當日第一根大週期 K。
+var float pdH = na
+var float pdL = na
+var float pdC = na
+var bool  pdNewDay = false
+int  pvGid   = f_gid(pvtMult)
+bool pvStart = isNewDay or firstBar or pvGid != pvGid[1]
 
-[pkJn, pkNew] = f_advance(pvH, pkJ, pkPendS, pkPendE, pvtLevel, true)
-[trJn, trNew] = f_advance(pvL, trJ, trPendS, trPendE, pvtLevel, false)
-pkJ := pkJn
-trJ := trJn
+// 本根要不要推進一次已確認 PVT（fH/fL/fC＝要推進的那根大週期 K）。
+bool  pvDo    = false
+float fH      = na
+float fL      = na
+float fC      = na
+bool  fNewDay = false
+if pvtMult == 1
+    // 倍數 1：圖表 K 棒本身就是計算用 K 棒，本根收完即推進（與原本逐根語意相同）
+    pvDo    := true
+    fH      := high
+    fL      := low
+    fC      := close
+    fNewDay := isNewDay
+else
+    if pvStart
+        // 新的一組開始＝上一組大週期 K 已收完 → 本根（下一組第一根）起才採用新狀態
+        if not na(pdH)
+            pvDo    := true
+            fH      := pdH
+            fL      := pdL
+            fC      := pdC
+            fNewDay := pdNewDay
+        pdH      := high
+        pdL      := low
+        pdC      := close
+        pdNewDay := isNewDay or firstBar
+    else
+        pdH := math.max(pdH, high)
+        pdL := math.min(pdL, low)
+        pdC := close
 
-// 1. 更新趨勢階梯（Python：先谷點、後峰點；兩兩取孰低／孰高，差距 ≤ 忽略值不動）
-if not na(trNew)
-    if na(bullAdopted)
-        bullAdopted := trNew
-    else if math.abs(trNew - bullAdopted) > pvtIgnore
-        bullLadder  := math.min(bullAdopted, trNew)
-        bullAdopted := trNew
-    trLast2 := trLast1
-    trLast1 := trNew
-if not na(pkNew)
-    if na(bearAdopted)
-        bearAdopted := pkNew
-    else if math.abs(pkNew - bearAdopted) > pvtIgnore
-        bearLadder  := math.max(bearAdopted, pkNew)
-        bearAdopted := pkNew
-    pkLast2 := pkLast1
-    pkLast1 := pkNew
+float pkNew = na    // 本根確認的峰點（驗證、Data Window 用）
+float trNew = na
+if pvDo
+    if fNewDay
+        array.clear(pvH)
+        array.clear(pvL)
+        array.clear(pkPendS)
+        array.clear(pkPendE)
+        array.clear(trPendS)
+        array.clear(trPendE)
+        pkJ := 0
+        trJ := 0
+    array.push(pvH, fH)
+    array.push(pvL, fL)
+    [pkJn, pkC] = f_advance(pvH, pkJ, pkPendS, pkPendE, pvtLevel, true)
+    [trJn, trC] = f_advance(pvL, trJ, trPendS, trPendE, pvtLevel, false)
+    pkJ   := pkJn
+    trJ   := trJn
+    pkNew := pkC
+    trNew := trC
+    [nBL, nBA, nSL, nSA, nRg, nT1, nT2, nP1, nP2] = f_ladder(trC, pkC, fC, pvtIgnore, bullLadder, bullAdopted, bearLadder, bearAdopted, regime, trLast1, trLast2, pkLast1, pkLast2)
+    bullLadder  := nBL
+    bullAdopted := nBA
+    bearLadder  := nSL
+    bearAdopted := nSA
+    regime      := nRg
+    trLast1     := nT1
+    trLast2     := nT2
+    pkLast1     := nP1
+    pkLast2     := nP2
 
-// 2. 控盤易主（p.97）：收盤突破空趨勢階梯 → 多方；收盤跌破多趨勢階梯 → 空方。
-//    易主當下用最近兩個已確認谷（峰）點孰低（孰高）重建階梯（Python _reseed）。
-bool swBull = not na(bearLadder) and close > bearLadder and regime != 1
-bool swBear = not na(bullLadder) and close < bullLadder and regime != -1
-if regime == 0   // 冷啟動（Python 詮釋）：率先被突破／跌破的階梯決定初始方向
-    swBull := swBull or (not na(bullLadder) and close > bullLadder)
-    swBear := swBear or (not na(bearLadder) and close < bearLadder)
-if swBull
-    regime := 1
-    if not na(trLast1)
-        float seedB = na(trLast2) ? trLast1 : math.min(trLast1, trLast2)
-        bullLadder  := seedB
-        bullAdopted := seedB
-else if swBear
-    regime := -1
-    if not na(pkLast1)
-        float seedS = na(pkLast2) ? pkLast1 : math.max(pkLast1, pkLast2)
-        bearLadder  := seedS
-        bearAdopted := seedS
+// ---- 發展中暫定階梯（倍數 >1）：把未收完的大週期 K 當成已收完試算，全部在副本上進行 ----
+float devBull = na
+float devBear = na
+int   devRg   = na
+if pvtMult > 1 and not na(pdH)
+    array<float> tH   = array.copy(pvH)
+    array<float> tL   = array.copy(pvL)
+    array<int>   tPkS = array.copy(pkPendS)
+    array<int>   tPkE = array.copy(pkPendE)
+    array<int>   tTrS = array.copy(trPendS)
+    array<int>   tTrE = array.copy(trPendE)
+    int tPkJ = pkJ
+    int tTrJ = trJ
+    if pdNewDay
+        array.clear(tH)
+        array.clear(tL)
+        array.clear(tPkS)
+        array.clear(tPkE)
+        array.clear(tTrS)
+        array.clear(tTrE)
+        tPkJ := 0
+        tTrJ := 0
+    array.push(tH, pdH)
+    array.push(tL, pdL)
+    [dPkJ, dPk] = f_advance(tH, tPkJ, tPkS, tPkE, pvtLevel, true)
+    [dTrJ, dTr] = f_advance(tL, tTrJ, tTrS, tTrE, pvtLevel, false)
+    [dBL, dBA, dSL, dSA, dRg, dT1, dT2, dP1, dP2] = f_ladder(dTr, dPk, pdC, pvtIgnore, bullLadder, bullAdopted, bearLadder, bearAdopted, regime, trLast1, trLast2, pkLast1, pkLast2)
+    devBull := dBL
+    devBear := dSL
+    devRg   := dRg
 
-plot(pvtShowBear ? bearLadder : na, title = "PVT 上緣（空趨勢階梯）", color = pvtColBear, linewidth = 2, style = plot.style_steplinebr)
-plot(pvtShowBull ? bullLadder : na, title = "PVT 下緣（多趨勢階梯）", color = pvtColBull, linewidth = 2, style = plot.style_steplinebr)
-color regimeBg = regime == 1 ? color.new(color.red, 90) : regime == -1 ? color.new(color.green, 90) : na
+// =============================================================================
+// 三、均線（1x：內建 ta.*，每根都計算；3x：close 手動聚合，合成序列計算）
+// =============================================================================
+// 合成序列＝已收完 3x 收盤 arr ＋ 末端發展中 dev（dev=na 時只用已收完的）；取第 age 新的值（age=0 為最後一點）。
+f_syn(array<float> arr, float dev, int age) =>
+    int m    = array.size(arr)
+    int synN = m + (na(dev) ? 0 : 1)
+    int idx  = synN - 1 - age
+    float res = na
+    if idx >= 0
+        res := idx < m ? array.get(arr, idx) : dev
+    res
+
+f_sma_syn(array<float> arr, float dev, int N) =>
+    int synN = array.size(arr) + (na(dev) ? 0 : 1)
+    float res = na
+    if synN >= N
+        float s = 0.0
+        for i = 0 to N - 1
+            s += f_syn(arr, dev, i)
+        res := s / N
+    res
+
+// ta.linreg(src, N, 0)：最小平方直線在視窗最後一點的值（WM-Trading f_lsma 同公式）
+f_lsma_syn(array<float> arr, float dev, int N) =>
+    int synN = array.size(arr) + (na(dev) ? 0 : 1)
+    float res = na
+    if synN >= N
+        float sx  = 0.0
+        float sy  = 0.0
+        float sxx = 0.0
+        float sxy = 0.0
+        for i = 0 to N - 1
+            float yv = f_syn(arr, dev, N - 1 - i)
+            float xv = i
+            sx  += xv
+            sy  += yv
+            sxx += xv * xv
+            sxy += xv * yv
+        float denom = N * sxx - sx * sx
+        if denom != 0
+            float slope     = (N * sxy - sx * sy) / denom
+            float intercept = (sy - slope * sx) / N
+            res := intercept + slope * (N - 1)
+    res
+
+// WMA(L)，結尾往前 shift 格（WM-Trading f_wma_syn 同公式）
+f_wma_syn(array<float> arr, float dev, int L, int shift) =>
+    int synN = array.size(arr) + (na(dev) ? 0 : 1)
+    float res = na
+    if synN - shift - L >= 0
+        float num = 0.0
+        float den = 0.0
+        for i = 0 to L - 1
+            num += f_syn(arr, dev, shift + L - 1 - i) * (i + 1)
+            den += (i + 1)
+        res := num / den
+    res
+
+// Hull：WMA(2·WMA(len/2) − WMA(len), floor(√len))（WM-Trading f_hma_syn 同公式）
+f_hma_syn(array<float> arr, float dev, int len) =>
+    int half = int(len / 2)
+    int sq   = int(math.floor(math.sqrt(len)))
+    float num = 0.0
+    float den = 0.0
+    bool  ok  = true
+    for k = 0 to sq - 1
+        int   sh = sq - 1 - k
+        float wh = f_wma_syn(arr, dev, half, sh)
+        float wf = f_wma_syn(arr, dev, len, sh)
+        if na(wh) or na(wf)
+            ok := false
+            break
+        num += (2.0 * wh - wf) * (k + 1)
+        den += (k + 1)
+    ok and den > 0 ? num / den : na
+
+// 方向：v 對 ref 上彎 +1、下彎 −1；相等時 SMA/LSMA 沿用前值、HMA 算 −1（WM-Trading 規則）；任一為 na 沿用前值
+f_dir(float v, float ref, int prev, bool pure) =>
+    (na(v) or na(ref)) ? prev : v > ref ? 1 : v < ref ? -1 : pure ? -1 : prev
+
+// ---- 3x close 手動聚合（每日從開盤起算、不跨日）----
+int MA_KEEP = math.max(maSmaLen, maLsmaLen, maHmaLen) + 40
+var array<float> m3c = array.new<float>()   // 已收完的 3x 收盤
+var float m3d = na                          // 發展中 3x 的最新收盤
+int  maGid   = f_gid(3)
+bool maStart = isNewDay or firstBar or maGid != maGid[1]
+if maStart and not na(m3d)
+    array.push(m3c, m3d)
+    if array.size(m3c) > MA_KEEP
+        array.shift(m3c)
+m3d := close
+
+bool ma3Dev = ma3Mode == M3_DEV
+
+// 1x（每根呼叫 ta.*）
+float sma1  = ta.sma(close, maSmaLen)
+float lsma1 = ta.linreg(close, maLsmaLen, 0)
+float hma1  = ta.hma(close, maHmaLen)
+
+// 3x（只在選 3x 時計算；函式不含 ta.*／歷史參考，可條件呼叫）
+float sma3d  = maSmaTf  == TF3 ? f_sma_syn(m3c, m3d, maSmaLen)   : na
+float sma3c  = maSmaTf  == TF3 ? f_sma_syn(m3c, na, maSmaLen)    : na
+float lsma3d = maLsmaTf == TF3 ? f_lsma_syn(m3c, m3d, maLsmaLen) : na
+float lsma3c = maLsmaTf == TF3 ? f_lsma_syn(m3c, na, maLsmaLen)  : na
+float hma3d  = maHmaTf  == TF3 ? f_hma_syn(m3c, m3d, maHmaLen)   : na
+float hma3c  = maHmaTf  == TF3 ? f_hma_syn(m3c, na, maHmaLen)    : na
+
+// 畫出的值與方向參考值：
+//   1x：本根 vs 前一根。3x 發展中：發展中 vs 最後一根已收完（WM-Trading dev-vs-conf）。
+//   3x 僅已收完：新的一根 3x 收完時，與前一根已收完比較，其餘沿用。
+float smaV    = maSmaTf == TF1 ? sma1 : ma3Dev ? sma3d : sma3c
+float smaRef  = maSmaTf == TF1 ? sma1[1] : ma3Dev ? sma3c : maStart ? sma3c[1] : na
+float lsmaV   = maLsmaTf == TF1 ? lsma1 : ma3Dev ? lsma3d : lsma3c
+float lsmaRef = maLsmaTf == TF1 ? lsma1[1] : ma3Dev ? lsma3c : maStart ? lsma3c[1] : na
+float hmaV    = maHmaTf == TF1 ? hma1 : ma3Dev ? hma3d : hma3c
+float hmaRef  = maHmaTf == TF1 ? hma1[1] : ma3Dev ? hma3c : maStart ? hma3c[1] : na
+var int smaDir  = 0
+var int lsmaDir = 0
+var int hmaDir  = 0
+smaDir  := f_dir(smaV, smaRef, smaDir, false)
+lsmaDir := f_dir(lsmaV, lsmaRef, lsmaDir, false)
+hmaDir  := f_dir(hmaV, hmaRef, hmaDir, true)
+
+f_dirCol(int d) =>
+    d == 1 ? COL_LONG : d == -1 ? COL_SHORT : COL_GRAY
+
+// =============================================================================
+// 輸出（plot／plotshape 全部在全域）
+// =============================================================================
+// --- 均線：1x 細、3x 粗 ---
+plot(maShowSma  ? smaV  : na, title = "SMA",  color = maDirCol ? f_dirCol(smaDir)  : maSmaCol,  linewidth = maSmaTf  == TF3 ? maW3 : maW1)
+plot(maShowLsma ? lsmaV : na, title = "LSMA", color = maDirCol ? f_dirCol(lsmaDir) : maLsmaCol, linewidth = maLsmaTf == TF3 ? maW3 : maW1)
+plot(maShowHma  ? hmaV  : na, title = "HMA",  color = maDirCol ? f_dirCol(hmaDir)  : maHmaCol,  linewidth = maHmaTf  == TF3 ? maW3 : maW1)
+
+// --- PVT 階梯：已確認（倍數 1 細、>1 粗）＋ 發展中暫定（細、淡色） ---
+int pvtLw = pvtMult > 1 ? pvtWN : pvtW1
+plot(pvtShowBear ? bearLadder : na, title = "PVT 上緣（空趨勢階梯）", color = pvtColBear, linewidth = pvtLw, style = plot.style_steplinebr)
+plot(pvtShowBull ? bullLadder : na, title = "PVT 下緣（多趨勢階梯）", color = pvtColBull, linewidth = pvtLw, style = plot.style_steplinebr)
+bool showDev = pvtShowDev and pvtMult > 1
+plot(showDev and pvtShowBear ? devBear : na, title = "PVT 暫定上緣（發展中）", color = pvtColBearDev, linewidth = 1, style = plot.style_steplinebr)
+plot(showDev and pvtShowBull ? devBull : na, title = "PVT 暫定下緣（發展中）", color = pvtColBullDev, linewidth = 1, style = plot.style_steplinebr)
+color regimeBg = regime == 1 ? color.new(COL_LONG, 90) : regime == -1 ? color.new(COL_SHORT, 90) : na
 bgcolor(pvtShowBg ? regimeBg : na, title = "PVT 控盤方向")
 
-// =============================================================================
-// 三、均線（每根都計算，只在畫圖時開關）
-// =============================================================================
-float maSma  = ta.sma(close, maSmaLen)
-float maLsma = ta.linreg(close, maLsmaLen, 0)
-float maHma  = ta.hma(close, maHmaLen)
-plot(maShowSma  ? maSma  : na, title = "SMA",  color = maSmaCol,  linewidth = 1)
-plot(maShowLsma ? maLsma : na, title = "LSMA", color = maLsmaCol, linewidth = 1)
-plot(maShowHma  ? maHma  : na, title = "HMA",  color = maHmaCol,  linewidth = 1)
+// --- 無遮蔽線與訊號：▲多（紅，K 棒下方）、▼空（綠，K 棒上方）；與 PVT 方向不一致可改灰 ---
+plot(usShowLineS ? chkLineS : na, title = "空方無遮蔽線", color = usColS, linewidth = 1, style = plot.style_linebr)
+plot(usShowLineL ? chkLineL : na, title = "多方無遮蔽線", color = usColL, linewidth = 1, style = plot.style_linebr)
+bool longGray  = usGrayMis and regime != 1
+bool shortGray = usGrayMis and regime != -1
+plotshape(usShowSig and sigLong and not longGray, title = "無遮蔽多單", style = shape.triangleup, location = location.belowbar,
+     color = COL_LONG, size = size.small, text = "多", textcolor = COL_LONG)
+plotshape(usShowSig and sigLong and longGray, title = "無遮蔽多單（與 PVT 方向不一致）", style = shape.triangleup, location = location.belowbar,
+     color = COL_GRAY, size = size.small, text = "多", textcolor = COL_GRAY)
+plotshape(usShowSig and sigShort and not shortGray, title = "無遮蔽空單", style = shape.triangledown, location = location.abovebar,
+     color = COL_SHORT, size = size.small, text = "空", textcolor = COL_SHORT)
+plotshape(usShowSig and sigShort and shortGray, title = "無遮蔽空單（與 PVT 方向不一致）", style = shape.triangledown, location = location.abovebar,
+     color = COL_GRAY, size = size.small, text = "空", textcolor = COL_GRAY)
+
+// --- Data Window（除錯／對照用，不畫在圖上）---
+color DW = color.new(color.gray, 100)
+plot(regime,                                "PVT方向(已確認)",   color = DW, display = display.data_window)
+plot(devRg,                                 "PVT方向(暫定)",     color = DW, display = display.data_window)
+plot(pvtMult,                               "PVT倍數",           color = DW, display = display.data_window)
+plot(pvtMult > 1 ? pvGid : na,              "大週期當日組號",    color = DW, display = display.data_window)
+plot(pvDo ? 1 : 0,                          "PVT本根推進",       color = DW, display = display.data_window)
+plot(pkNew,                                 "本根確認峰點",      color = DW, display = display.data_window)
+plot(trNew,                                 "本根確認谷點",      color = DW, display = display.data_window)
+plot(bearLadder,                            "PVT上緣值",         color = DW, display = display.data_window)
+plot(bullLadder,                            "PVT下緣值",         color = DW, display = display.data_window)
+plot(devBear,                               "PVT暫定上緣值",     color = DW, display = display.data_window)
+plot(devBull,                               "PVT暫定下緣值",     color = DW, display = display.data_window)
+plot(sigLong ? 1 : sigShort ? -1 : 0,       "無遮蔽訊號",        color = DW, display = display.data_window)
+plot(sigLong ? (regime == 1 ? 1 : 0) : sigShort ? (regime == -1 ? 1 : 0) : na, "訊號與PVT一致", color = DW, display = display.data_window)
+plot(chkLineS,                              "空方無遮蔽線值",    color = DW, display = display.data_window)
+plot(chkLineL,                              "多方無遮蔽線值",    color = DW, display = display.data_window)
+plot(smaV,                                  "SMA值",             color = DW, display = display.data_window)
+plot(smaDir,                                "SMA方向",           color = DW, display = display.data_window)
+plot(lsmaV,                                 "LSMA值",            color = DW, display = display.data_window)
+plot(lsmaDir,                               "LSMA方向",          color = DW, display = display.data_window)
+plot(hmaV,                                  "HMA值",             color = DW, display = display.data_window)
+plot(hmaDir,                                "HMA方向",           color = DW, display = display.data_window)
+
+// --- 警示 ---
+alertcondition(sigLong, title = "無遮蔽多單", message = "無遮蔽多單訊號 {{ticker}} {{interval}} 收盤 {{close}}")
+alertcondition(sigShort, title = "無遮蔽空單", message = "無遮蔽空單訊號 {{ticker}} {{interval}} 收盤 {{close}}")
+alertcondition(regime == 1 and regime[1] != 1, title = "PVT 轉多方控盤", message = "PVT 轉多方控盤 {{ticker}} {{interval}} 收盤 {{close}}")
+alertcondition(regime == -1 and regime[1] != -1, title = "PVT 轉空方控盤", message = "PVT 轉空方控盤 {{ticker}} {{interval}} 收盤 {{close}}")
