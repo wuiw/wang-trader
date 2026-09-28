@@ -30,6 +30,8 @@
   F4 訊號K線本身波動過大，導致停損恐逾 max_risk（40）→ 忽略（p.233）。
   F5 no_entry_after：時間晚於此不做新倉（時間性規則，預設關閉）。
   F6 同日同側已有未獲利交易 → 不再進場（p.233，作者提醒；預設開啟）。
+  F7 min_session_range：訊號當下盤中震幅（sess_high − sess_low）須 ≥ 此值（讀書會作者補充
+     「因盤中震盪低於40點，故需忽略此買訊」，2019-08-23 post 492643204881779；書外規則，預設關閉）。
 
 週期：不限。所有門檻以點數表示。
 """
@@ -61,6 +63,7 @@ class Params:
     reverse_max_from_flat: float = 100.0  # p.236
     no_entry_after: time | None = None  # F5，時間性規則，預設關閉
     no_repeat_after_loss: bool = True  # F6，p.233 作者提醒
+    min_session_range: float | None = None  # F7，讀書會作者補充（40），書外規則，預設關閉
 
 
 class RsiDiffSignal(Strategy):
@@ -202,6 +205,8 @@ class RsiDiffSignal(Strategy):
             return None
         if p.no_entry_after is not None and hasattr(b["time"], "time") and b["time"].time() > p.no_entry_after:
             return None  # F5
+        if p.min_session_range is not None and b["sess_high"] - b["sess_low"] < p.min_session_range:
+            return None  # F7
         if p.no_repeat_after_loss:  # F6
             for t in ctx.trades:
                 if df.at[t.entry_i, "session"] == sess and t.side == side and t.pnl <= 0:

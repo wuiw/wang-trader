@@ -17,6 +17,9 @@
   再次出現死叉（放空）／金叉（買進）之當根即進場；若該根 K 線方向不符（死叉卻是紅K、
   金叉卻是黑K），順延至隨後第一根方向正確的 K 線進場，逾 confirm_wait 根仍未出現則放棄
   （書中未給明確等待根數，比照 q3-01 p.20 設參數，屬推論預設值）。
+  dir_bar_needs_change（書外，預設關閉）：讀書會助教說法「任何的訊號成立的K棒，買要上漲，空要下跌」
+  「需等死叉且該根為下跌黑K」（2021-05-06 post 1414000618947848）；開啟後方向K線除收黑（紅）外，
+  收盤還須低於（高於）前一根收盤。
   可選加開 MA8／SAR 濾網（p.212）：require_ma_or_sar=True 時，進場根還須收盤站上/跌破 MA8
   或穿越 SAR，預設關閉（書中僅以「可搭配」描述，非硬性規則）。
 跨日規則（p.213）：背離兩端點跨日時，開盤跳空 < gap_carry_points（預設10）視為無縫接軌，
@@ -65,6 +68,7 @@ class Params:
     kd_k_period: int = 3
     kd_d_period: int = 3
     confirm_wait: int = 10        # F3：等待方向正確K線的根數上限（原文未給明確根數，推論）
+    dir_bar_needs_change: bool = False  # 讀書會「空要下跌黑K、買要上漲紅K」，書外規則，預設關閉
     require_ma_or_sar: bool = False  # p.212：可選加開 MA8／SAR 濾網，預設關閉（原文為建議非硬性）
     ma_period: int = 8
     gap_carry_points: float = 10.0   # F4（p.213）
@@ -86,6 +90,16 @@ class _Chain:
     confirm_b: float | None = None      # 背離端點 B（本次訊號新高/新低的極端價）
     k_seen: float | None = None         # 拉回（反彈）段 K 值極值：空＝最低、多＝最高（C2）
     d_seen: float | None = None         # 黃金（死亡）交叉後 D 值極值：空＝最高、多＝最低（C3）
+
+
+def _dir_bar(df: pd.DataFrame, i: int, is_short: bool, needs_change: bool) -> bool:
+    """方向正確的K線：空＝收黑、多＝收紅；needs_change 時還須收盤低於（高於）前一根收盤。"""
+    c, o = df.at[i, "close"], df.at[i, "open"]
+    ok = (c < o) if is_short else (c > o)
+    if ok and needs_change and i >= 1:
+        pc = df.at[i - 1, "close"]
+        ok = (c < pc) if is_short else (c > pc)
+    return bool(ok)
 
 
 def _cross(df: pd.DataFrame, i: int) -> str | None:
@@ -124,7 +138,7 @@ def _track_side(chain: _Chain, df: pd.DataFrame, i: int, p: Params, *, is_short:
         if i - chain.confirm_bar > p.confirm_wait:
             chain.confirm_bar = None
             return None
-        is_dir_bar = (df.at[i, "close"] < df.at[i, "open"]) if is_short else (df.at[i, "close"] > df.at[i, "open"])
+        is_dir_bar = _dir_bar(df, i, is_short, p.dir_bar_needs_change)
         if is_dir_bar:
             level, b_ref = chain.confirm_level, chain.confirm_b
             chain.confirm_bar = None
@@ -169,7 +183,7 @@ def _track_side(chain: _Chain, df: pd.DataFrame, i: int, p: Params, *, is_short:
         if new_extreme and d_ok and k_ok:
             level = b_ref = float(b_price)
             chain.phase, chain.p1_bar = "idle", None
-            is_dir_bar = (close_ < df.at[i, "open"]) if is_short else (close_ > df.at[i, "open"])
+            is_dir_bar = _dir_bar(df, i, is_short, p.dir_bar_needs_change)
             if is_dir_bar:
                 return (level, b_ref)
             chain.confirm_bar, chain.confirm_level, chain.confirm_b = i, level, b_ref

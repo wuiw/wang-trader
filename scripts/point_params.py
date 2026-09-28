@@ -37,6 +37,8 @@ from __future__ import annotations
 
 REF_PRICE: dict[str, float] = {
     "q2": 8500.0,
+    # 讀書會書外方法（sg_*）：以規則提出當時的台指期水位為準（sg-01：2021-04 約 16,500～17,500，取 17000）
+    "sg": 17000.0,
     "q3": 10000.0,
     # 《股技期招》台指期範例的 BX003台指期近 報價列（extracted/pages/ 逐字擷取），
     # 涵蓋 2008-05～2009-02（民國97-98年）多個圖例，價位介於約 4300～9400：
@@ -145,6 +147,12 @@ POINT_PARAMS: dict[str, list[str]] = {
         "swing_points",  # D5：A、B 兩端點幅度下限（p.224）
         # ob_extreme/os_extreme/mid/os_breach/ob_breach 為 RSI(0-100)數值，不縮放
     ],
+    "sg_01_rsi_blunt_quick": [
+        "stop_points",
+        "stop_min_offset",
+        "stop_integer_points",
+        # window_minutes 為時間、ob/os_extreme 為 RSI 數值，不縮放
+    ],
     "q2_06_04_rsi_blunt_n_shape": [
         "stop_points",
         "seamless_gap_points",
@@ -252,6 +260,7 @@ POINT_PARAMS: dict[str, list[str]] = {
         "max_risk",
         "profit_confirm",
         "reverse_max_from_flat",
+        "min_session_range",  # 預設 None 時不縮放
         # diff_threshold 是 RSI 值差距（0-100 尺度），不是點數，不縮放
     ],
     "q3_11_option_swing_breakout": [

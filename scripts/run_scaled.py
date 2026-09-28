@@ -143,6 +143,8 @@ def one(args) -> tuple[dict, pd.DataFrame | None]:
         ref = REF_PRICE["q2"]
     elif name.startswith("gq"):
         ref = REF_PRICE["gq"]
+    elif name.startswith("sg"):
+        ref = REF_PRICE["sg"]
     else:
         ref = REF_PRICE["q3"]
     df = pd.read_parquet(DATA / f"tx_day_{tf}min.parquet")

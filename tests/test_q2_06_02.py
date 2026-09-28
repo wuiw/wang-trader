@@ -159,3 +159,13 @@ def test_pullback_k_must_dip_below_50_at_some_point():
     for i in range(6):
         _track_side(chain2, df2, i, p, is_short=True)
     assert chain2.phase == "wait_death"
+
+
+def test_dir_bar_needs_change():
+    import pandas as pd
+
+    from wangtrader.methods.q2_06_02_kd_divergence import _dir_bar
+
+    df = pd.DataFrame({"open": [100.0, 105.0], "close": [100.0, 102.0]})  # 第2根收黑但比前根收盤上漲
+    assert _dir_bar(df, 1, True, False)
+    assert not _dir_bar(df, 1, True, True)

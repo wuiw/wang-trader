@@ -243,3 +243,17 @@ def test_c4_flat_rsi_is_not_turning_point():
     ], prev_day=PREV)
     sig = run(RsiDiffSignal(rsi_period=1), rising).signals[0]
     assert sig.side == Side.SHORT and sig.stop == 10081
+
+
+def test_min_session_range_filter_is_off_by_default_and_blocks_when_set():
+    bars = make_bars([
+        (9998, 10008, 9996, 10000),
+        (10003, 10013, 10001, 10005),
+        (10008, 10018, 10006, 10010),
+        (10016, 10021, 10014, 10018),
+        (10026, 10031, 10024, 10028),
+        (10038, 10043, 10036, 10040),
+        (10039, 10042, 10027, 10029),  # 盤中震幅 10043-9996=47
+    ], prev_day=PREV)
+    assert run(RsiDiffSignal(min_session_range=40), bars).signals  # 47 >= 40：成立
+    assert not run(RsiDiffSignal(min_session_range=50), bars).signals  # 47 < 50：忽略
