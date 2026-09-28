@@ -152,6 +152,7 @@ POINT_PARAMS: dict[str, list[str]] = {
         "stop_max_risk",
         "giveback_points",
         "breakeven_arm_points",
+        "time_stop_flat_points",
     ],
     "q2_04_01_cross_kd_n_type": [
         "max_signal_points",
@@ -185,6 +186,8 @@ POINT_PARAMS: dict[str, list[str]] = {
         "gap_carry_points",
         "stop_points",
         "reversal_bounce_points",
+        "stop_min_offset",
+        "stop_integer_points",
         # d_overbought/d_oversold/k_mid/k_extreme 為 KD(0-100)數值，不縮放
     ],
     "q2_06_03_rsi_divergence": [
@@ -237,6 +240,7 @@ POINT_PARAMS: dict[str, list[str]] = {
         "stop_points",  # float | None，預設 20.0（非 None），照常縮放；None 維持 None
         "profit_target", "extreme_range", "extreme_from_prev_close",
         "retrace_trigger",  # 折返平倉／反手資格門檻（p.90-91）
+        "reversal_stop_points",
     ],
     "q3_05_break_three_high_low": [
         "stop_points",
