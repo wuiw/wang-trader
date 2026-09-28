@@ -5,3 +5,5 @@ __pycache__/
 data/
 results/
 reference/
+extracted/study-group/
+scripts/parse_study_group.py

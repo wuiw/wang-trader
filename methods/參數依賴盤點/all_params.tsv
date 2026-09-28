@@ -1,0 +1,621 @@
+gq_01_01_big_bar_trail_exit	big_bar_pct	4.0	大陽線/大陰線判定門檻（%）。大陰線跳空替代條件原文明訂4%（p.4）；
+gq_01_02_transition_candle	doji_body_max_pct	0.3	開盤收盤視為「同價」的容許誤差（%）。原文未定量，推論。
+gq_01_02_transition_candle	no_shadow_max_pct	0.1	判定「無」另一側影線的容許誤差（%）。原文未定量，推論。
+gq_01_02_transition_candle	long_shadow_min_pct	2.0	判定影線為「長」的門檻（%）。原文未定量，推論。
+gq_01_02_transition_candle	uptrend_ma_period	20	判定「上升趨勢」的均線週期。原文未定量，推論。
+gq_01_02_transition_candle	vol_ma_period	20	T字線「爆量」比較基準均量週期（推論，股票專屬，見docstring）。
+gq_01_02_transition_candle	vol_spike_ratio	2.0	爆量門檻＝量 ≥ 均量 × 此倍數（推論，保守值）。
+gq_01_02_transition_candle	require_volume_spike	True	T字線是否須爆量（p.5明文要求；台指期分K可關閉）。
+gq_01_03_evening_star	high_lookback	20	C1：長紅K線A之高點須為近N根（含本身）新高，判定「波段最高點附近」。原文未定量，推論。
+gq_01_03_evening_star	rally_lookback	10	C1：「連續性大漲」回顧根數。原文未定量，推論。
+gq_01_03_evening_star	rally_min_pct	15.0	C1：回顧期間累計漲幅門檻（%）。原文未定量，推論。
+gq_01_03_evening_star	long_candle_min_pct	3.0	C2：「長紅K線」門檻（%，相對開盤）。原文未定量，推論。
+gq_01_03_evening_star	star_max_body_pct	1.0	C2：「小星線」實體門檻（%，相對開盤）。原文未定量，推論。
+gq_01_03_evening_star	vol_ma_period	20	爆量比較基準均量週期（股票專屬概念，推論；台指期分K需依實際狀況調整）。
+gq_01_03_evening_star	vol_spike_ratio	2.0	爆量門檻＝量 ≥ 均量 × 此倍數（推論，保守）。
+gq_01_03_evening_star	entry_trigger	'c3'	進場觸發點："c3"（初步訊號，預設）或"c4"（加強確認）。原文未二擇一，推論。
+gq_01_03_evening_star	check_volume_shrink_filter	True	F3（p.8）：爆量後量急縮且均線未走緩 → 訊號不成立。
+gq_01_03_evening_star	vol_shrink_ratio	0.5	F3：「量急縮」門檻＝觸發根均量 ≤ 夜星爆量 × 此比例。原文未定量，推論。
+gq_01_03_evening_star	shrink_ma_period	10	F3：判斷「均線未走緩」用之均線週期。原文未定量，推論。
+gq_01_04_black_belt_hold	long_candle_min_pct	3.0	C1：A「長紅K線」門檻（%，相對開盤）。原文未定量，推論。
+gq_01_04_black_belt_hold	rally_lookback	10	C1：「連續性上漲」回顧根數。原文未定量，推論。
+gq_01_04_black_belt_hold	rally_min_pct	10.0	C1：回顧期間累計漲幅門檻（%）。原文未定量，推論。
+gq_01_04_black_belt_hold	limit_up_pct	None	C1：「漲停」股票專屬概念（相對前收漲幅門檻）。
+gq_01_04_black_belt_hold	consecutive_limit_up_min	0	搭配limit_up_pct：A之前連續漲停根數門檻，0＝不檢查。
+gq_01_04_black_belt_hold	gap_up_min_pct	5.0	C2：隔日跳空開高漲幅門檻（%，相對A收盤）。明文"通常超過5%"（p.9）。
+gq_01_04_black_belt_hold	open_is_high_tolerance_pct	0.1	C2：判定「開盤即當日最高」的容許誤差（%）。原文未定量，推論。
+gq_01_04_black_belt_hold	close_is_low_tolerance_pct	0.1	C3：判定「以最低點收盤」的容許誤差（%）。原文未定量，推論。
+gq_01_04_black_belt_hold	belt_max_gain_pct	1.5	C4：收盤相對A收盤漲幅上限（%）。明文1.5%（p.9）。
+gq_01_04_black_belt_hold	vol_ma_period	20	C5：爆量比較基準均量週期。推論；台指期分K需依實際狀況調整。
+gq_01_04_black_belt_hold	vol_spike_ratio	2.0	C5：爆量門檻倍率。推論，保守。
+gq_01_05_dark_cloud_cover	long_candle_min_pct	3.0	C1：A「長紅K線」門檻（%，相對開盤）。原文未定量，推論。
+gq_01_05_dark_cloud_cover	high_lookback	20	C1：A之高點須為近N根（含本身）新高，判定「高檔區域」。原文未定量，推論。
+gq_01_05_dark_cloud_cover	rally_lookback	10	C1：累計漲幅回顧根數。原文未定量，推論。
+gq_01_05_dark_cloud_cover	rally_min_pct	10.0	C1：回顧期間累計漲幅門檻（%）。原文未定量，推論。
+gq_01_05_dark_cloud_cover	gap_up_max_pct	3.0	C2：隔日跳高開盤幅度上限（%，相對A收盤）。明文"通常3%以內"（p.9）。
+gq_01_05_dark_cloud_cover	vol_ma_period	20	C4：爆量比較基準均量週期（僅供meta記錄，不濾除訊號）。推論。
+gq_01_05_dark_cloud_cover	vol_spike_ratio	2.0	C4：爆量門檻倍率（僅供meta記錄）。推論，保守。
+gq_01_06_bearish_engulfing	long_candle_min_pct	3.0	A「長紅K線」門檻（%，相對開盤）。原文未定量，推論。
+gq_01_06_bearish_engulfing	high_lookback	20	C1：A之高點須為近N根（含本身）新高，判定「高檔」。原文未定量，推論。
+gq_01_06_bearish_engulfing	rally_lookback	10	C1：累計漲幅回顧根數。原文未定量，推論。
+gq_01_06_bearish_engulfing	rally_min_pct	10.0	C1：回顧期間累計漲幅門檻（%）。原文未定量，推論。
+gq_01_06_bearish_engulfing	engulf_gap_max_pct	3.0	C2：B跳高開盤幅度上限（%，相對A最高點）。明文"約3%以內"（p.9,21）。
+gq_01_06_bearish_engulfing	vol_ma_period	20	C3：爆量比較基準均量週期。推論；台指期分K需依實際狀況調整。
+gq_01_06_bearish_engulfing	vol_spike_ratio	2.0	C3：爆量門檻倍率。推論，保守。
+gq_01_07_falling_line_reversal	long_red_body_pct	3.0	「長紅K」門檻：實體漲幅%（原文未定量，推論預設值，p.9,26）
+gq_01_07_falling_line_reversal	lookback_bars	60	回溯根數，找近期最高點以判斷高檔/跌勢中（原文未定量，推論）
+gq_01_07_falling_line_reversal	near_top_pct	5.0	距回溯期最高點在此百分比內 → 高檔位置（原文未定量，推論，p.26 C4）
+gq_01_07_falling_line_reversal	far_from_top_pct	15.0	距回溯期最高點跌幅超過此百分比 → 跌勢已發展一段時間（原文未定量，推論，p.30-31）
+gq_01_07_falling_line_reversal	volume_lookback	20	判斷「爆量」的基準期（原文未定量，推論，p.30）
+gq_01_07_falling_line_reversal	surge_volume_multiple	2.0	長紅K量 ≥ 基準均量之此倍數 → 爆量（原文未定量，推論，p.26,30）
+gq_01_07_falling_line_reversal	low_volume_multiple	1.2	突破K線量 ≤ 基準均量之此倍數 → 量縮到位（原文未定量，推論，p.30）
+gq_01_08_ma_inertia	fast_period	10	快均線，MA10（p.35）
+gq_01_08_ma_inertia	slow_period	20	慢均線，MA20（p.35；亦可用MA20/MA60，自行調整）
+gq_01_08_ma_inertia	use_ema	False	均線計算基礎：簡單平均(False)或EMA(True)皆可（p.35,39-40）
+gq_01_08_ma_inertia	long_exit_n	4	多方出場：跌破前N日區間低點，N常見1/2/4/8（p.32-37），預設取中段值
+gq_01_08_ma_inertia	short_exit_n	4	空方回補：突破前N日區間高點，N常見1/2/8（p.38-39），預設取中段值
+gq_01_08_ma_inertia	no_short_below_flat	True	台股平盤下禁空（p.38）；台指期分K可設 False
+gq_01_08_ma_inertia	flat_wait_bars	60	等待價格觸及平盤以上的最長根數（原文未規定，推論預設值）
+gq_01_09_inertia_break_buy	lookback_days	20	C1：整理格局累計交易日門檻（p.41，「超過20個交易日」）
+gq_01_09_inertia_break_buy	big_bar_body_pct	4.0	C2：「大漲K線」實體漲幅門檻（原文未定量，推論預設值，p.41-49）
+gq_01_09_inertia_break_buy	horizontal_range_pct	20.0	C3：水平式整理判定，區間高低差 ≤ 此百分比（p.42）
+gq_01_09_inertia_break_buy	trend_pivot_level	2	C3：下斜式整理找峰點的層級（原文未指定，借用 gq-01-11 層級2慣例，推論）
+gq_01_09_inertia_break_buy	require_ma_breakout	False	C4：加分條件，預設不強制（p.46）
+gq_01_09_inertia_break_buy	ma_period	20	C4 用均線週期（原文未指定，推論預設值）
+gq_01_09_inertia_break_buy	stop_mode	'low'	停損二擇一："low"｜"pct7"｜"tighter"｜"wider"
+gq_01_09_inertia_break_buy	stop_pct	7.0	收盤價向下 N% 停損（p.42-43,47）
+gq_01_10_first_limit_up	lookback_days	50	C1（p.51）
+gq_01_10_first_limit_up	limit_up_pct	7.0	漲停幅度（原文年代個股漲跌幅7%；依商品/年代調整；台指期分K基本不會觸發）
+gq_01_10_first_limit_up	limit_up_tol	0.3	判斷「漲停」的容忍誤差%（原文未定量，推論，避免資料誤差誤判）
+gq_01_10_first_limit_up	year_bars	240	F1：近一年交易日數估算（原文未定量，以一年約240個交易日估算，推論）
+gq_01_10_first_limit_up	max_volume_multiple	1.5	F1（p.52）
+gq_01_10_first_limit_up	trough_pivot_level	1	F2/F3：波谷層級（原文未指定，推論）
+gq_01_10_first_limit_up	max_from_trough_pct	20.0	F2/F3（p.52,58）
+gq_01_10_first_limit_up	primary_stop_pct	7.0	主要停損（p.54-58）
+gq_01_10_first_limit_up	reversal_on_break_signal_low	False	簡化版反手規則（p.58，見檔頭說明）；原文僅限存疑案例，簡化版非原文規則，預設關閉
+gq_01_10_first_limit_up	exit_mode	'none'	"none"｜"channel"（可選，引用 gq-01-12 模式四精神，非原文指定）
+gq_01_10_first_limit_up	exit_channel_n	10	channel 出場視窗根數（引用 gq-01-12 模式四範例值，非原文對本法指定）
+gq_01_11_pivot_trendline_breakout	fast_period	20	快均線（河流圖最短均線之等效），p.67「站上最短均線」
+gq_01_11_pivot_trendline_breakout	slow_period	50	慢均線，判斷多空交叉用（p.68 MA300/180；p.76 EMA20/50，本模組簡化為單一組）
+gq_01_11_pivot_trendline_breakout	pivot_level	2	層級2轉折點（p.64-65）
+gq_01_11_pivot_trendline_breakout	require_ma_confirm	True	C5（p.67,77,80）
+gq_01_11_pivot_trendline_breakout	reject_bad_candle	True	C6（p.78-79）
+gq_01_11_pivot_trendline_breakout	body_min_pct	1.0	C6：小星線門檻，實體 < 收盤價此百分比（原文未定量，推論）
+gq_01_11_pivot_trendline_breakout	confirm_max_wait	10	C6 等待確認K線的最長根數（原文未定量，推論）
+gq_01_11_pivot_trendline_breakout	confirm_max_drift_pct	5.0	C6 偏離訊號K收盤超過此百分比則放棄（原文未定量，推論）
+gq_01_11_pivot_trendline_breakout	stop_mode	'pivot'	"pivot"｜"fixed"｜"pct"
+gq_01_11_pivot_trendline_breakout	fixed_points	30.0	stop_mode="fixed" 或 pivot 找不到轉折點時的退回值（p.68-70）
+gq_01_11_pivot_trendline_breakout	stop_pct	7.0	stop_mode="pct"（p.65,79）
+gq_01_11_pivot_trendline_breakout	big_candle_mid_override	True	巨大K線以中點為停損（p.66,72）
+gq_01_11_pivot_trendline_breakout	big_candle_range_points	60.0	判斷「巨大K線」的振幅門檻（點數，需依商品縮放，原文未給
+gq_01_11_pivot_trendline_breakout	exit_mode	'none'	"none"｜"ladder"｜"channel"
+gq_01_11_pivot_trendline_breakout	exit_channel_n	10	exit_mode="channel" 用視窗根數
+gq_01_11_pivot_trendline_breakout	ladder_target	30.0	exit_mode="ladder" 的獲利目標點數（原文未指定，推論，需依商品縮放）
+gq_02_01_rsi_falling_momentum_reversal	rsi_period	5	RSI週期，原文未指定，依專案慣用預設5（推論）
+gq_02_01_rsi_falling_momentum_reversal	rsi_method	'wilder'	
+gq_02_01_rsi_falling_momentum_reversal	season_period	60	季線，依台股慣例60日（原文僅稱「季線」，推論標明）
+gq_02_01_rsi_falling_momentum_reversal	year_period	240	年線，依台股慣例240日（推論標明）
+gq_02_01_rsi_falling_momentum_reversal	trend_lookback	1	C1：判斷季線/年線「朝上」的比較根數，原文未定量，推論預設值
+gq_02_01_rsi_falling_momentum_reversal	down_run_days	6	C2：RSI連續遞減天數門檻（含），p.92
+gq_02_01_rsi_falling_momentum_reversal	reversal_pct	0.03	C3：反漲K線漲幅門檻，p.92
+gq_02_01_rsi_falling_momentum_reversal	stop_pct	0.07	停損：最大7%，p.94
+gq_02_01_rsi_falling_momentum_reversal	exit_mode	'none'	"none"|"model1"|"model2"|"model4"（見模組docstring，比照gq-01-12）
+gq_02_01_rsi_falling_momentum_reversal	big_bar_pct	0.04	model1：大漲/跌K線門檻，gq-01-12 p.85
+gq_02_01_rsi_falling_momentum_reversal	pivot_level	2	model2：轉折點層級，gq-01-12 p.86
+gq_02_01_rsi_falling_momentum_reversal	n_window_long	10	model4：區間根數（書中多方範例10），gq-01-12 p.88
+gq_02_02_rsi_oversold_and_divergence	rsi_period	5	原文未指定，依專案慣用預設5（推論）
+gq_02_02_rsi_oversold_and_divergence	rsi_method	'wilder'	
+gq_02_02_rsi_oversold_and_divergence	oversold_level	20.0	C1/D1，p.99, 104
+gq_02_02_rsi_oversold_and_divergence	big_bar_pct	0.05	C2，p.99
+gq_02_02_rsi_oversold_and_divergence	pivot_level	1	背離「前波谷點」層級，原文未定量，推論預設1
+gq_02_02_rsi_oversold_and_divergence	stop_mode	'pct'	"pct"|"pivot"，p.100
+gq_02_02_rsi_oversold_and_divergence	stop_pct	0.07	p.100
+gq_02_03_rsi_cross_80	rsi_period	5	原文未指定，依專案慣用預設5（推論）
+gq_02_03_rsi_cross_80	rsi_method	'wilder'	
+gq_02_03_rsi_cross_80	upper_threshold	80.0	C1/C2，p.109-110
+gq_02_03_rsi_cross_80	mid_threshold	50.0	C1'/C2'，p.113-114
+gq_02_03_rsi_cross_80	enable_cross50	True	是否同時偵測「穿越50」輔助訊號，p.113-114
+gq_02_03_rsi_cross_80	big_bar_pct	0.05	C3/C3'，p.109
+gq_02_03_rsi_cross_80	shadow_max_pct	None	選用：上影線占比上限，原文未定量，預設關閉
+gq_02_03_rsi_cross_80	stop_tick	1.0	真實低點下方一檔，原文未量化「一檔」大小，推論預設1.0
+gq_02_04_kd_cross_gap_filter	trend_fast	5	趨勢快線，原文未指定週期，推論預設
+gq_02_04_kd_cross_gap_filter	trend_slow	20	趨勢慢線，原文未指定週期，推論預設
+gq_02_04_kd_cross_gap_filter	kd_n	9	
+gq_02_04_kd_cross_gap_filter	k_period	3	
+gq_02_04_kd_cross_gap_filter	d_period	3	
+gq_02_04_kd_cross_gap_filter	d_cross_max	65.0	C2，p.115
+gq_02_04_kd_cross_gap_filter	k_cross_min	20.0	C2'，p.119
+gq_02_04_kd_cross_gap_filter	pivot_level	1	波谷/波峰層級，原文未定量，推論預設1
+gq_02_04_kd_cross_gap_filter	gap_days_max	3	C3/C3'，p.115-116, 119
+gq_02_04_kd_cross_gap_filter	tier_pct	0.02	C4/C4' 同位階容忍度，原文未定量，推論預設2%
+gq_02_04_kd_cross_gap_filter	black_k_required	True	C5'，p.120
+gq_02_04_kd_cross_gap_filter	stop_mode	'pct'	"pct"|"peak_tick"（空方）
+gq_02_04_kd_cross_gap_filter	stop_pct	0.07	p.120
+gq_02_04_kd_cross_gap_filter	stop_tick	1.0	stop_mode="peak_tick" 用，推論預設1.0
+gq_02_04_kd_cross_gap_filter	long_stop_pct	None	多方停損：原文未規定，預設關閉（可設 0.07 權宜使用）
+gq_02_04_kd_cross_gap_filter	trailing_black_bar	True	空方移動停損（p.120）
+gq_02_04_kd_cross_gap_filter	black_bar_pct	0.04	「長黑K線」判定門檻，原文未量化，推論預設
+gq_02_05_kd_early_breakout_divergence	trend_fast	5	原文未指定週期，推論預設
+gq_02_05_kd_early_breakout_divergence	trend_slow	20	原文未指定週期，推論預設
+gq_02_05_kd_early_breakout_divergence	kd_n	9	
+gq_02_05_kd_early_breakout_divergence	k_period	3	
+gq_02_05_kd_early_breakout_divergence	d_period	3	
+gq_02_05_kd_early_breakout_divergence	k_threshold	50.0	C2，p.121
+gq_02_05_kd_early_breakout_divergence	stop_mode	'tick'	"tick"|"pct"，p.121, 125
+gq_02_05_kd_early_breakout_divergence	stop_tick	1.0	原文未量化「一檔」大小，推論預設
+gq_02_05_kd_early_breakout_divergence	stop_pct	0.07	p.125
+gq_02_06_kd_early_turn_up	trend_fast	5	原文未指定週期，推論預設
+gq_02_06_kd_early_turn_up	trend_slow	20	原文未指定週期，推論預設
+gq_02_06_kd_early_turn_up	kd_n	9	
+gq_02_06_kd_early_turn_up	k_period	3	
+gq_02_06_kd_early_turn_up	d_period	3	
+gq_02_06_kd_early_turn_up	k_threshold	50.0	C2，p.129
+gq_02_06_kd_early_turn_up	require_prior_decline	True	C3 轉折確認，原文字面近似，推論
+gq_02_06_kd_early_turn_up	stop_mode	'tick'	"tick"|"pct"，p.129-130
+gq_02_06_kd_early_turn_up	stop_tick	1.0	原文未量化「一檔」大小，推論預設
+gq_02_06_kd_early_turn_up	stop_pct	0.07	p.130
+gq_03_01_macd_n_turn	fast	12	MACD 快線週期，業界標準值（原文未規定）
+gq_03_01_macd_n_turn	slow	26	MACD 慢線來源週期，業界標準值（原文未規定）
+gq_03_01_macd_n_turn	signal	9	DIF 平滑週期（慢線 MACD），業界標準值（原文未規定）
+gq_03_01_macd_n_turn	max_bars_since_cross	10	C4「不出幾天」原文未定量，預設值為推論
+gq_03_01_macd_n_turn	require_red	True	C5：訊號K須陽線（必要條件，p.137）
+gq_03_01_macd_n_turn	max_upper_shadow_ratio	1.0	上影線／實體 比例上限，原文未定量，預設值為推論
+gq_03_01_macd_n_turn	require_break_prev_high	False	原文「最好」非必要，預設關閉（p.138）
+gq_03_01_macd_n_turn	stop_tick	1.0	停損＝期間最低點下方一跳（p.137, 139）
+gq_03_01_macd_n_turn	stop_mode	'tick'	"tick" | "pct"
+gq_03_01_macd_n_turn	fixed_stop_pct	None	stop_mode="pct" 時使用，原文未指定數值（p.137）
+gq_03_01_macd_n_turn	exit_mode	'none'	"none" | "ladder"，原文未給明確停利規則
+gq_03_01_macd_n_turn	profit_target	0.0	ladder 啟動門檻，原文未規定數值，預設0＝有獲利即啟動（推論）
+gq_03_02_macd_reverse_n_turn	fast	12	
+gq_03_02_macd_reverse_n_turn	slow	26	
+gq_03_02_macd_reverse_n_turn	signal	9	
+gq_03_02_macd_reverse_n_turn	days_since_cross_max	20	F1：拖延超過20天非有效訊號（p.144，明確數字）
+gq_03_02_macd_reverse_n_turn	require_no_immediate_drop	True	F2：訊號當根收盤須 >= 死叉當根收盤（p.141 情境具體化）
+gq_03_02_macd_reverse_n_turn	stop_tick	1.0	峰頂上方一檔（p.141）
+gq_03_02_macd_reverse_n_turn	stop_mode	'tick'	"tick" | "pct"
+gq_03_02_macd_reverse_n_turn	fixed_stop_pct	0.07	7%最大停損（p.141，明確數字）
+gq_03_03_macd_double_cross	fast	12	
+gq_03_03_macd_double_cross	slow	26	
+gq_03_03_macd_double_cross	signal	9	
+gq_03_03_macd_double_cross	max_bars_between_crosses	30	C4：正文「一個月」的交易日推算值（矛盾另見圖說15天，推論）
+gq_03_03_macd_double_cross	require_red	True	C5：訊號當日須陽線（必要條件，均線多排例外不實作）
+gq_03_03_macd_double_cross	pivot_level	2	「跌破一低」轉折層級，本節未指定，採書中慣例（推論）
+gq_03_03_macd_double_cross	exit_mode	'prev_low_break'	"prev_low_break" | "ladder" | "none"
+gq_03_03_macd_double_cross	profit_target	0.0	ladder 啟動門檻，原文未規定數值，預設0（推論）
+gq_03_04_dif_streak_reversal	fast	12	
+gq_03_04_dif_streak_reversal	slow	26	
+gq_03_04_dif_streak_reversal	signal	9	
+gq_03_04_dif_streak_reversal	min_decline_days	23	C1，明確數字（p.155, 161）
+gq_03_04_dif_streak_reversal	pct_gain_min	4.0	C3，明確百分比（p.155）
+gq_03_04_dif_streak_reversal	stop_pct	7.0	明確百分比（p.156-159）
+gq_03_04_dif_streak_reversal	exit_mode	'prev_day_low'	"prev_day_low" | "ladder" | "none"
+gq_03_04_dif_streak_reversal	profit_target	0.0	ladder 啟動門檻，原文未規定數值，預設0（推論）
+gq_04_01_bias_reversal_buy	bias_period	10	10日乖離率（p.166）
+gq_04_01_bias_reversal_buy	bias_threshold	-12.0	一般股臨界值；績優股多頭中可設 -7.0（p.166，明確數字）
+gq_04_01_bias_reversal_buy	search_window	3	濾網搜尋期限（F1/D4，明確數字，p.168, 173）
+gq_04_01_bias_reversal_buy	near_limit_pct	8.0	C2b「接近漲停」，原文未定量，預設值為推論（p.167）
+gq_04_01_bias_reversal_buy	require_shadow_ok	True	上影線不宜超過實體長度（p.167）
+gq_04_01_bias_reversal_buy	close_position_ratio	None	收盤落在震幅上3/4以上，原文「最好」非必要，預設關閉
+gq_04_01_bias_reversal_buy	require_gain_min	None	訊號K漲幅宜>3%，原文「最好」非必要，預設關閉
+gq_04_01_bias_reversal_buy	enable_divergence	True	3.2節背離型買訊
+gq_04_01_bias_reversal_buy	stop_mode	'recent_low'	"recent_low" | "pct"
+gq_04_01_bias_reversal_buy	stop_pct	7.0	明確數字（p.168, 172）
+gq_04_02_dmi_stalagmite	dmi_period	14	業界標準值，原文未規定
+gq_04_02_dmi_stalagmite	base_level	25.0	起升點門檻（p.176、184、186，明確數字）
+gq_04_02_dmi_stalagmite	short_threshold	40.0	+DI 見頂臨界點（週/日線/分時皆40，p.176、184）
+gq_04_02_dmi_stalagmite	long_threshold	35.0	-DI 見底臨界點（週/日線35；台指期分時可設40，見docstring）
+gq_04_02_dmi_stalagmite	down_bar_tolerance	3	「一路推升」容許的下彎根數上限（不含），明確數字（p.176、186）
+gq_04_02_dmi_stalagmite	five_bar_n	5	五根同色K例外門檻，明確數字（p.176-177、191）
+gq_04_02_dmi_stalagmite	mirror_long_exception	True	買進方向例外為推論延伸，預設開啟（CODING_SPEC規則6）
+gq_04_02_dmi_stalagmite	max_bars_from_extreme	3	時效濾網（週/日線3天，明確數字；分時可設4或10，見docstring）
+gq_04_02_dmi_stalagmite	max_pct_from_extreme	15.0	時效濾網（週/日線15%，明確數字；分時未提及，設None）
+gq_04_02_dmi_stalagmite	stop_mode	'recent_extreme'	"recent_extreme" | "pct"
+gq_04_02_dmi_stalagmite	stop_tick	1.0	週/日線「上方一檔」；分時「1~3檔」化簡為單一參數
+gq_04_02_dmi_stalagmite	stop_pct	7.0	明確數字（p.182）
+gq_04_02_dmi_stalagmite	exit_mode	'none'	"none" | "points" | "rsi5"（後兩者為台指期分時超短線用，p.184）
+gq_04_02_dmi_stalagmite	points_target	25.0	exit_mode="points"，書中20~30點，取中點為推論預設值
+gq_04_02_dmi_stalagmite	rsi_period	5	exit_mode="rsi5"，明確數字（p.184）
+gq_04_02_dmi_stalagmite	rsi_overbought	70.0	
+gq_04_02_dmi_stalagmite	rsi_oversold	30.0	
+gq_04_03_williams_extreme	williams_period	50	書中50或100，明確數字，可調整（p.192）
+gq_04_03_williams_extreme	overbought_enter	80.0	
+gq_04_03_williams_extreme	overbought_extreme	90.0	
+gq_04_03_williams_extreme	oversold_enter	20.0	
+gq_04_03_williams_extreme	oversold_extreme	10.0	
+gq_04_03_williams_extreme	max_bars_from_extreme	4	C3/C3'，明確數字（p.192）
+gq_04_03_williams_extreme	max_dwell_bars	10	F3，明確數字（日線，p.195）
+gq_04_03_williams_extreme	inertia_bars	8	E1/E2，明確數字（p.192、195-196、198）
+gq_04_03_williams_extreme	long_stay_exception	False	長時間停留例外，書中限30分鐘以上K線圖，預設關閉
+gq_04_03_williams_extreme	long_stay_threshold	20	明確數字（p.200-201）
+gq_04_03_williams_extreme	no_entry_after	None	F6尾盤濾網，書中為當沖建議，預設關閉（p.198）
+gq_04_03_williams_extreme	stop_mode	'recent_extreme'	"recent_extreme" | "pct"
+gq_04_03_williams_extreme	stop_tick	1.0	
+gq_04_03_williams_extreme	stop_pct	7.0	
+q2_01_ma_three_step	ma_period	30	均線週期，書中 MA30（p.2）
+q2_01_ma_three_step	pivot_level	2	層級2轉折點（p.4-5）
+q2_01_ma_three_step	stop_min_offset	10.0	停損公式固定部分（p.13）
+q2_01_ma_three_step	stop_integer_points	20.0	整數價位固定停損點數（p.13）
+q2_01_ma_three_step	big_bar_points	15.0	F1：訊號K線漲跌幅上限（p.18）
+q2_01_ma_three_step	max_dev_from_break	60.0	F2：距均線起漲/跌位置上限（p.18）
+q2_01_ma_three_step	max_dev_from_prev_close	60.0	F3：距平盤上限（p.18正文60點；p.19舉例90點，見docstring）
+q2_01_ma_three_step	min_bar_points	2.0	F4：訊號K線漲跌幅下限（p.24-25）
+q2_01_ma_three_step	no_entry_after	None	F5：晚於此時刻不進場（書中收盤前30分鐘，p.23），預設關閉
+q2_01_ma_three_step	carry_over_to_next_open	True	隔日尾盤訊號延續進場（p.23）
+q2_01_ma_three_step	exit_mode	'ladder'	"ladder" | "sar" | "ma" | "range" | "fixed" | "none"（p.28-51, 6.1-6.6）
+q2_01_ma_three_step	profit_target	20.0	初始獲利目標（p.30, 38）
+q2_01_ma_three_step	trail_points	20.0	ladder：固定點數移動停利的回檔點數（p.30-31）
+q2_01_ma_three_step	trail_breach_points	1.0	ladder：觸及＝盤中跌破停利線達此點數（p.31「超過1點」）
+q2_01_ma_three_step	ma_fast_period	10	ma：獲利擴大後改用的較小均線週期（p.42，MA10）
+q2_01_ma_three_step	ma_fast_arm_profit	50.0	ma：獲利達此點數後由 MA(ma_period) 切換為 MA(ma_fast_period)（p.42）
+q2_01_ma_three_step	range_bars	15	range：區間高低點停利所取的K線根數（p.46-49，預設15）
+q2_01_ma_three_step	range_breach_points	1.0	range：觸及＝影線超過停利點此點數（p.47「超過1點」）
+q2_01_ma_three_step	fixed_exit_points	10.0	fixed：窄幅盤整固定點數出場（p.28，書中舉例10點）
+q2_01_ma_three_step	breakeven_arm_points	15.0	求不賠：獲利曾達此點數後回到進場價即出場，優先於 exit_mode（p.32-33, 6.7）
+q2_01_ma_three_step	time_stop_bars	None	持倉逾此根數無明顯獲利，考慮離場（p.22）；門檻未量化，預設關閉
+q2_01_ma_three_step	time_stop_min_profit	0.0	搭配 time_stop_bars：獲利需 < 此值才觸發
+q2_02_sarc	pivot_level	2	層級2轉折點（p.4-5，第一章沿用）
+q2_02_sarc	stop_min_offset	10.0	停損公式固定部分（p.72-73）
+q2_02_sarc	stop_integer_points	20.0	整數價位固定停損點數（p.72-73）
+q2_02_sarc	max_pivot_moves	2	3.4：濾網最多移動次數（含首條共3條線），超過放棄候選（p.72-73）
+q2_02_sarc	max_signal_points	50.0	F1：(0)到(3)距離上限（p.75, 77）
+q2_02_sarc	same_dir_min_swing	30.0	F2：同向重複訊號需夾此點數以上單筆擺動才可再進場（p.77-79）
+q2_02_sarc	exit_mode	'ladder'	"ladder" | "sar" | "range" | "none"（6.1-6.3）
+q2_02_sarc	profit_target	20.0	初始獲利目標（p.81, 85）
+q2_02_sarc	trail_points	20.0	ladder：固定點數移動停利的回檔點數（p.81-83）
+q2_02_sarc	trail_breach_points	1.0	ladder：觸及＝盤中跌破停利線達此點數
+q2_02_sarc	range_bars	20	range：區間高低點停利所取的K線根數（p.84，本章20根）
+q2_02_sarc	range_breach_points	1.0	range：觸及＝影線超過停利點此點數
+q2_02_sarc	breakeven_exit	True	求不賠：達 profit_target 後回到進場價即出場（p.82，簡化見docstring）
+q2_02_sarc	time_stop_bars	None	持倉逾此根數無明顯輸贏，考慮離場（p.79）；門檻未量化，預設關閉
+q2_02_sarc	time_stop_min_profit	0.0	搭配 time_stop_bars：獲利需 < 此值才觸發
+q2_03_01_pvt_n_type	pivot_level	2	層級2轉折點（p.100-101 亦可選層級4）
+q2_03_01_pvt_n_type	ladder_ignore_diff	2.0	兩轉折點差距 ≤ 此值忽略比較（p.96）
+q2_03_01_pvt_n_type	stop_min_offset	10.0	
+q2_03_01_pvt_n_type	stop_integer_points	20.0	
+q2_03_01_pvt_n_type	stop_use_ladder	True	停損可改採 PVT 階梯（p.108）
+q2_03_01_pvt_n_type	stop_max_risk	20.0	公式停損與階梯皆須在此風控範圍內才比較取優（p.108）
+q2_03_01_pvt_n_type	max_pattern_points	30.0	F1：(0)到(3)距離上限（p.104）
+q2_03_01_pvt_n_type	max_dev_from_ladder	20.0	F2：(0)距階梯上限（p.105）
+q2_03_01_pvt_n_type	max_drift_from_breakout	30.0	F3：突破後偏離上限（p.110）
+q2_03_01_pvt_n_type	max_bars_from_breakout	60	F3：突破後拖延根數上限（p.110）
+q2_03_01_pvt_n_type	no_entry_after	None	F4：書中收盤前1小時（p.105），預設關閉
+q2_03_01_pvt_n_type	carry_over_to_next_open	True	隔日開盤延續進場（p.105-106）：F4濾掉的訊號沿用隔日開盤第一根
+q2_03_01_pvt_n_type	giveback_points	15.0	折返停利點數（書中舉例15或20點，p.108/118）
+q2_03_01_pvt_n_type	ladder_exit	True	已獲利部位可用 PVT 階梯停利（p.108, 6.2）
+q2_03_01_pvt_n_type	reentry_keep_stop	True	補進場沿用同段控盤首次進場的停損，不重新計算（p.124，圖3-33；推論見上）
+q2_03_02_pvt_rsi	pivot_level	2	
+q2_03_02_pvt_rsi	ladder_ignore_diff	2.0	兩轉折點差距 ≤ 此值忽略比較（p.96，沿用PVT階梯規則）
+q2_03_02_pvt_rsi	break_points	10.0	C1：突破階梯最高點需超過此點數（p.112）
+q2_03_02_pvt_rsi	retrace_points	10.0	C2：折返幅度需超過此點數（p.112）
+q2_03_02_pvt_rsi	rsi_period	5	RSI 參數書中未明確數值，採核心預設
+q2_03_02_pvt_rsi	rsi_mid	50.0	
+q2_03_02_pvt_rsi	max_drift_from_breakout	None	F4：書中僅舉例「約90點」，未量化，預設關閉
+q2_03_02_pvt_rsi	stop_min_offset	10.0	
+q2_03_02_pvt_rsi	stop_integer_points	20.0	
+q2_03_02_pvt_rsi	stop_use_ladder	True	
+q2_03_02_pvt_rsi	stop_max_risk	20.0	
+q2_03_02_pvt_rsi	giveback_points	15.0	折返停利點數（p.118舉例15或20點）
+q2_03_02_pvt_rsi	ladder_exit	True	已獲利部位可用 PVT 階梯停利（p.122, 6.2）
+q2_03_02_pvt_rsi	breakeven_arm_points	15.0	保本出場：獲利曾達此點數後折返回進場價即出場（p.118-119, 6.3）
+q2_03_02_pvt_rsi	time_stop_bars	None	持倉逾此根數無明顯輸贏，考慮平手離場（p.119）；門檻未量化，預設關閉
+q2_04_01_cross_kd_n_type	htf_bars	15	大週期／小週期根數比（書中15分鐘／1分鐘＝15，p.127）
+q2_04_01_cross_kd_n_type	kd_n	9	大週期 KD 的 RSV 週期（p.127）
+q2_04_01_cross_kd_n_type	k_period	3	KD 的 K 平滑週期（書中未特別說明，沿用台式KD慣例）
+q2_04_01_cross_kd_n_type	d_period	3	KD 的 D 平滑週期（同上）
+q2_04_01_cross_kd_n_type	level	2	峰谷點層級（p.127，層級2轉折點）
+q2_04_01_cross_kd_n_type	max_signal_points	15.0	F3：訊號K線漲跌點數上限（p.127）
+q2_04_01_cross_kd_n_type	pullback_stop_max	10.0	F3：補進場時距停損（0點）的目標距離（p.127）
+q2_04_01_cross_kd_n_type	big_bar_pullback	True	F3：大K線訊號等拉回補進場（True）或直接忽略（False），書中兩者並列
+q2_04_01_cross_kd_n_type	max_wait	10	補進場等待根數（書中未給明確數字，比照 q3-01 慣例預設，見末待確認事項）
+q2_04_01_cross_kd_n_type	retrace_points	15.0	折返停利點數（p.133）
+q2_04_01_cross_kd_n_type	five_bar_n	5	五黑過首紅之連續根數門檻（p.134）
+q2_04_01_cross_kd_n_type	mirror_five_bar_long	True	推論：多方鏡射「五紅過首黑」，預設開啟（CODING_SPEC規則6）
+q2_04_01_cross_kd_n_type	second_signal_min_profit	None	F4：第二次同向訊號忽略門檻，書中未給數字，預設關閉
+q2_04_02_four_pillars	level	2	峰谷點層級（p.143, p.151，層級2轉折點）
+q2_04_02_four_pillars	min_side_bars	3	C1/C1'：突破前弱側須有的最少收盤根數（p.141, p.143）
+q2_04_02_four_pillars	retrace_points	15.0	折返停利（推論延用 q2-04-01 同一機制，書中未重新定義，見docstring）
+q2_04_02_four_pillars	stop_points_cap	20.0	停損點數上限，一般情況超過則改用「進場價 ± 此點數」
+q2_04_02_four_pillars	major_event_stop	False	重大事件（公投、選舉開票等）停損可超過20點，預設關閉（p.152–153）
+q2_05_01_extreme_three_soldiers	level	2	峰谷點層級（p.157，層級2轉折點）
+q2_05_01_extreme_three_soldiers	min_range	10.0	C4/C4'：幅度下限，<此點數無效訊號（p.157–158）
+q2_05_01_extreme_three_soldiers	max_range	30.0	C4/C4'：幅度上限，>此點數宜忽略或等拉回/反彈（p.157–158）
+q2_05_01_extreme_three_soldiers	swing_range	30.0	C0/F6：極端位置前提，近期波段高低點到三兵組合的盤中距離下限（p.161）
+q2_05_01_extreme_three_soldiers	swing_from_prev_close	40.0	C0/F6：距平盤替代門檻（p.162「以昨收起算」）
+q2_05_01_extreme_three_soldiers	skip_when_over_max_range	False	幅度超過上限時：False=補進場等拉回；True=直接忽略（書中(a)(b)並列，見12）
+q2_05_01_extreme_three_soldiers	stop_max	20.0	停損控制上限，亦作補進場之目標距離（p.157–158, 163）
+q2_05_01_extreme_three_soldiers	max_wait	10	補進場等待根數（書中未給明確數字，比照 q3-01 慣例預設，見12）
+q2_05_01_extreme_three_soldiers	stopped_no_repeat	True	F5：同方向訊號被停損後本交易日不再使用（p.163）
+q2_05_01_extreme_three_soldiers	exit_mode	'retrace'	"retrace" | "ladder" | "none"
+q2_05_01_extreme_three_soldiers	retrace_target	15.0	折返停利：獲利超過15點後折返進場點出場（p.171）
+q2_05_01_extreme_three_soldiers	ladder_target	20.0	階梯式移動停利：初始獲利20點後啟動（p.171）
+q2_05_02_extreme_max_volume	min_volume	1500.0	F1（p.174），成交量門檻（口數）
+q2_05_02_extreme_max_volume	min_swing_points	30.0	C4/F3（p.174, 175），幅度門檻
+q2_05_02_extreme_max_volume	max_filter_bars	15	C6（p.176），濾網時效根數
+q2_05_02_extreme_max_volume	stop_points	20.0	停損（風控）點數上限（p.175, 179）
+q2_05_02_extreme_max_volume	max_wait	10	補進場等待根數（原文未給明確根數，推論比照 q3-01 p.20）
+q2_06_01_fake_extreme_divergence	min_swing_points	40.0	F1（p.194, 197），極端位置的最小盤中幅度
+q2_06_01_fake_extreme_divergence	stop_points	20.0	停損（風控）點數上限（p.194, 196）
+q2_06_01_fake_extreme_divergence	max_wait	10	補進場等待根數（原文未給明確根數，推論比照 q3-01 p.20）
+q2_06_02_kd_divergence	d_overbought	80.0	C1/C3（p.203），D 值超買門檻
+q2_06_02_kd_divergence	d_oversold	20.0	C1'/C3'（p.203），D 值超賣門檻
+q2_06_02_kd_divergence	k_mid	50.0	C2（p.203），拉回/反彈時 K 值須跌破/突破的中線
+q2_06_02_kd_divergence	k_extreme	20.0	C2（p.203），拉回不能低於／反彈不能高於 100-k_extreme
+q2_06_02_kd_divergence	kd_n	9	
+q2_06_02_kd_divergence	kd_k_period	3	
+q2_06_02_kd_divergence	kd_d_period	3	
+q2_06_02_kd_divergence	confirm_wait	10	F3：等待方向正確K線的根數上限（原文未給明確根數，推論）
+q2_06_02_kd_divergence	dir_bar_needs_change	False	讀書會「空要下跌黑K、買要上漲紅K」，書外規則，預設關閉
+q2_06_02_kd_divergence	require_ma_or_sar	False	p.212：可選加開 MA8／SAR 濾網，預設關閉（原文為建議非硬性）
+q2_06_02_kd_divergence	ma_period	8	
+q2_06_02_kd_divergence	gap_carry_points	10.0	F4（p.213）
+q2_06_02_kd_divergence	stop_points	20.0	
+q2_06_02_kd_divergence	max_wait	10	補進場等待根數（原文未給明確根數，推論比照 q3-01 p.20）
+q2_06_02_kd_divergence	stop_mode	'combined'	"endpoint" | "ma_signal" | "combined"（p.209 原文機制）
+q2_06_02_kd_divergence	reversal_bounce_points	20.0	p.209：反彈未達此點數即視為背離失敗
+q2_06_02_kd_divergence	mirror_reversal	True	空單反手規則為鏡像推論，預設開啟
+q2_06_03_rsi_divergence	rsi_period	5	
+q2_06_03_rsi_divergence	rsi_method	'wilder'	
+q2_06_03_rsi_divergence	ob_extreme	90.0	嚴重超買門檻（p.220）
+q2_06_03_rsi_divergence	os_extreme	10.0	嚴重超賣門檻（p.220）
+q2_06_03_rsi_divergence	mid	50.0	進場穿越線（p.220）
+q2_06_03_rsi_divergence	os_breach	20.0	空方背離途中 RSI 不可跌破（p.220）
+q2_06_03_rsi_divergence	ob_breach	80.0	多方背離途中 RSI 不可突破（p.220）
+q2_06_03_rsi_divergence	pivot_level	2	層級 2 轉折點（p.220）
+q2_06_03_rsi_divergence	max_gap_bars	30	兩端點時間距離上限，書中「30 根 K 線」（p.227）
+q2_06_03_rsi_divergence	stop_points	20.0	停損點數上限（p.226）
+q2_06_03_rsi_divergence	swing_points	30.0	D5：A、B 兩端點幅度下限，開盤跳空超過此點數則不受限（p.224）
+q2_06_04_rsi_blunt_n_shape	rsi_period	5	
+q2_06_04_rsi_blunt_n_shape	rsi_method	'wilder'	
+q2_06_04_rsi_blunt_n_shape	ob_extreme	90.0	嚴重超買門檻（p.234）
+q2_06_04_rsi_blunt_n_shape	os_extreme	10.0	嚴重超賣門檻（p.236）
+q2_06_04_rsi_blunt_n_shape	pivot_level	2	層級 2 轉折點（p.235）
+q2_06_04_rsi_blunt_n_shape	max_delay_bars	60	訊號延遲上限，書中「逾 1 小時」換算（p.240）
+q2_06_04_rsi_blunt_n_shape	pivot_shift_max	1	觸發峰谷在拉回轉折點形成前允許位移次數（p.241）
+q2_06_04_rsi_blunt_n_shape	pivot_shift_window_bars	5	位移須於此根數內完成（p.241）
+q2_06_04_rsi_blunt_n_shape	continuation	True	鈍化續勢 N 型／倒 N 型訊號（p.235, 237, 241）
+q2_06_04_rsi_blunt_n_shape	stop_mode	'trig'	"trig" | "ma_signal" | "combined"（p.234）
+q2_06_04_rsi_blunt_n_shape	stop_points	20.0	停損上限（p.234「宜控制停損點數在 20 點以內」），超過改用 ma_signal
+q2_06_04_rsi_blunt_n_shape	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+q2_06_04_rsi_blunt_n_shape	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+q2_06_04_rsi_blunt_n_shape	max_blunt_overshoot	20.0	C5b/C6b：鈍化續勢訊號突破原極端K線幅度上限（p.238）
+q2_06_04_rsi_blunt_n_shape	gap_filter	False	F5，預設關閉（推論）
+q2_06_04_rsi_blunt_n_shape	seamless_gap_points	10.0	無縫接軌門檻（p.244）
+q2_06_04_rsi_blunt_n_shape	min_valid_gap_points	30.0	有效起點跳空門檻（p.243）
+q2_06_04_rsi_blunt_n_shape	no_entry_after	None	F6，預設關閉（推論）
+q3_01_double_red_black	stop_points	20.0	單筆最大風險（p.15, 18–19）
+q3_01_double_red_black	stop_tick	1.0	極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+q3_01_double_red_black	max_wait	10	補進場等待根數（p.20）
+q3_01_double_red_black	far_entry_mode	'pullback'	距離 > stop_points 時："pullback" | "direct" | "ignore"（p.19–20, 22）
+q3_01_double_red_black	extreme_range	30.0	
+q3_01_double_red_black	extreme_from_prev_close	40.0	
+q3_01_double_red_black	min_pattern_points	0.0	F4，書中 5 分K以上建議 10
+q3_01_double_red_black	no_entry_after	None	F5，書中 12:30
+q3_01_double_red_black	opposite_signal_no_invade	True	F6，p.56
+q3_01_double_red_black	exit_mode	'ladder'	
+q3_01_double_red_black	profit_target	20.0	
+q3_01_double_red_black	retrace_step	20.0	折返點數停利的扣抵點數（p.28-30，exit_mode="retracement"）
+q3_01_double_red_black	ma_period	10	
+q3_02_v_reversal	stop_points	20.0	單筆最大風險（p.50）
+q3_02_v_reversal	stop_tick	1.0	極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+q3_02_v_reversal	max_wait	10	補進場等待根數；書未載明具體根數（推論，比照 q3-01 預設）
+q3_02_v_reversal	far_entry_mode	'pullback'	距離 > stop_points 時："pullback" | "direct" | "ignore"（p.50）
+q3_02_v_reversal	large_bar_direct_range	30.0	tier1：反向K實體 > stop_points 且收盤距極端點 ≤ 此值 → 直接進場（p.53）
+q3_02_v_reversal	large_bar_threshold	30.0	tier2：反向K實體 > 此值（超大K線）→ 改用中點基準（p.53-54）
+q3_02_v_reversal	extreme_range	30.0	p.49, 57
+q3_02_v_reversal	extreme_from_prev_close	40.0	p.49, 57
+q3_02_v_reversal	opposite_signal_no_invade	True	F1，p.56
+q3_02_v_reversal	same_side_stop_once	True	F5，p.60
+q3_02_v_reversal	reversal_enabled	False	p.59-60；書中不建議台指使用，預設關閉
+q3_02_v_reversal	exit_mode	'none'	推論；書中未證實可套用第一章出場法，預設關閉
+q3_02_v_reversal	profit_target	20.0	
+q3_02_v_reversal	ma_period	10	
+q3_02_v_reversal	stall_minutes	60.0	時間停滯出場：進場後約一小時（p.62），以 K 線時間戳計算，不綁週期；None 關閉
+q3_02_v_reversal	stall_progress_points	0.0	「毫無進展」門檻：max_profit 未達此點數視為無進展（p.62）
+q3_03_mother_child	stop_points	20.0	單筆最大風險（p.70）
+q3_03_mother_child	stop_tick	1.0	母K極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+q3_03_mother_child	far_entry_mode	'pullback'	距離 > stop_points 時："pullback" | "direct" | "ignore"（p.70, 73）
+q3_03_mother_child	max_wait	10	補進場等待根數（書中未給明確數字，沿用第一章慣例）
+q3_03_mother_child	giveup_distance	40.0	F6：距母K極端點 ≥ 此值原則上放生不操作（p.73）
+q3_03_mother_child	extreme_range	30.0	p.68-69
+q3_03_mother_child	extreme_from_prev_close	40.0	p.68-69
+q3_03_mother_child	mirror_low_bound	True	推論：底母子鏡像「訊號K最低點不低於母K最低點」（書中僅空方 C4 有明文）
+q3_03_mother_child	retrace_to_entry	True	折返平倉（p.72-73），恆常啟用
+q3_03_mother_child	retrace_trigger	1.0	折返平倉的「曾真正獲利」門檻（書中未給明確數字，示範獲利16點）
+q3_03_mother_child	exit_mode	'none'	推論；書中未提供本訊號另外的移動停利規則
+q3_03_mother_child	profit_target	20.0	
+q3_03_mother_child	ma_period	10	
+q3_04_tit_for_tat	tolerance_points	1.0	p.84, 96
+q3_04_tit_for_tat	stop_points	20.0	單筆最大風險（推論：全書一貫 20 點）；None = 不設停損
+q3_04_tit_for_tat	stop_tick	1.0	A 極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+q3_04_tit_for_tat	max_wait	10	補進場等待根數（書中未給明確數字，沿用第一章慣例，p.87）
+q3_04_tit_for_tat	require_extreme	True	極端位置前提（p.84「定義和前面所有極端位置訊號一樣」）
+q3_04_tit_for_tat	extreme_range	30.0	p.49, 57（第二章定義）
+q3_04_tit_for_tat	extreme_from_prev_close	40.0	
+q3_04_tit_for_tat	same_side_stop_once	True	F3，p.92
+q3_04_tit_for_tat	retrace_trigger	15.0	折返平倉／反手資格門檻（p.90-91）
+q3_04_tit_for_tat	reversal_enabled	True	p.91；書中未提示台指不宜使用，預設開啟
+q3_04_tit_for_tat	exit_mode	'none'	推論；書中未提供本訊號另外的移動停利規則
+q3_04_tit_for_tat	profit_target	20.0	
+q3_04_tit_for_tat	ma_period	10	
+q3_05_break_three_high_low	lookback	3	前N根比較區間，C2/C3（p.101, p.104-105）
+q3_05_break_three_high_low	stop_points	20.0	單筆最大風險（p.104-105, p.112-113）
+q3_05_break_three_high_low	stop_tick	1.0	極端點穿越此點數即停損（p.23「穿越 1 個跳動單位」）
+q3_05_break_three_high_low	immediate_distance	20.0	距極端 ≤此值直接進場（p.104-105）
+q3_05_break_three_high_low	ignore_beyond	40.0	距極端 >此值通常忽略（p.112-113）
+q3_05_break_three_high_low	far_entry_mode	'pullback'	20~40點區間："pullback" 等拉回 | "direct" 直接進場 | "ignore"
+q3_05_break_three_high_low	max_wait	10	補進場等待根數（書中未給明確數字，沿用範本慣例）
+q3_05_break_three_high_low	reversal_profit_threshold	15.0	停損反手資格門檻：未達此獲利觸停損才可反手（p.113）
+q3_05_break_three_high_low	require_pivot_after_gap	True	跳空前提（p.103），原文明文規則，預設開啟
+q3_05_break_three_high_low	pivot_level	1	層級1峰谷點（p.103）
+q3_05_break_three_high_low	max_signal_delay	4	C4：訊號K須在極端K後最多此根數以內（p.107）
+q3_05_break_three_high_low	retrace_trigger	15.0	折返平倉門檻（p.111）
+q3_06_five_in_a_row_reversal	min_run	5	連續同色K最少根數（p.121）
+q3_06_five_in_a_row_reversal	min_points	40.0	該段（或可回溯整段）幅度門檻（p.121, C2b見p.127）
+q3_06_five_in_a_row_reversal	require_stepping	True	每根須為下跌/上漲K線（收盤低於/高於前一根收盤，p.121, 55, 127）
+q3_06_five_in_a_row_reversal	shadow_max_points	5.0	最後一根同色K影線濾網：點數上限（p.128-129）
+q3_06_five_in_a_row_reversal	shadow_max_ratio	0.2	影線濾網：占實體比例上限（p.128-129）
+q3_06_five_in_a_row_reversal	stop_points	20.0	停損點數，以訊號K收盤價為基準（p.124, 126）
+q3_06_five_in_a_row_reversal	stale_bars	None	可選：持倉逾N根仍無獲利即平倉（p.135，書中為建議、非嚴格規則，預設關閉）
+q3_06_five_in_a_row_reversal	no_entry_after	None	F5：距收盤不到1小時忽略（p.123）；時鐘時間規則，預設關閉
+q3_07_opening_bar	gap_threshold	40.0	開盤乖離平盤門檻（p.138-139）
+q3_07_opening_bar	shadow_max	3.0	訊號K反方向影線上限（p.138-139）
+q3_07_opening_bar	stop_points	20.0	停損點數，以訊號K收盤價為基準（p.140-141, 144）
+q3_07_opening_bar	profit_trigger	15.0	折返停利／反手資格門檻（p.145, 147）
+q3_07_opening_bar	stall_minutes	60.0	時間停滯出場：進場後約一小時（p.148），以 K 線時間戳計算，不綁週期；None 關閉
+q3_08_01_ma_breakout	ma_period	10	MA10（p.157）
+q3_08_01_ma_breakout	stop_points	20.0	停損點數（p.162-165，圖8-9）
+q3_08_01_ma_breakout	max_wait	10	補進場等待根數（書中未載明確切根數，沿用 q3-01 慣例，待確認）
+q3_08_01_ma_breakout	large_bar_mode	'wait'	"wait"（補進場，預設）| "midpoint"（直接進場，停損設實體中點）
+q3_08_01_ma_breakout	rest_extreme_filter	False	推論：以休息期間極值作濾網（p.172 圖8-17 讀法），預設關閉
+q3_08_01_ma_breakout	turn_dist_min	10.0	F3（p.168）
+q3_08_01_ma_breakout	turn_dist_max	40.0	F1（p.162）
+q3_08_01_ma_breakout	gap_open_range_max	40.0	F1 跳空情境：開盤後高低震幅界限（p.162）
+q3_08_01_ma_breakout	carryover_open_dist_max	60.0	F4 延續開盤情境：距開盤後最低/最高點（p.184）
+q3_08_01_ma_breakout	strict_distance	True	F5：海外商品可設 False 關閉距離濾網（p.164）
+q3_08_01_ma_breakout	use_swing_filter	True	F2 開關
+q3_08_01_ma_breakout	swing_pivot_level	5	F2 波段起點峰谷層級（書中「通常層級5以上」，p.163-164）
+q3_08_01_ma_breakout	swing_dist_max	60.0	F2（p.163-164）
+q3_08_01_ma_breakout	reverse_on_opposite_extreme	True	遇逆向極端訊號強制平倉反手（p.169）
+q3_08_01_ma_breakout	extreme_range	30.0	逆向極端偵測用（同 q3-01 定義）
+q3_08_01_ma_breakout	extreme_from_prev_close	40.0	
+q3_08_01_ma_breakout	exit_mode	'retrace'	"retrace"|"ma_touch"|"ladder"|"ma"|"sar"|"none"
+q3_08_01_ma_breakout	retrace_arm	15.0	折返停利：先達此獲利才開始追蹤（p.163圖8-6示範獲利逾30才觸發）
+q3_08_01_ma_breakout	retrace_points	15.0	折返停利：由最高獲利回吐此點數觸價出場（p.163, p.184-185）
+q3_08_01_ma_breakout	ma_touch_bars	12	均線遵循性停利：連續未觸及均線根數門檻（書中「逾1小時」，以5分K換算約12根，週期不同須自行調整）
+q3_08_02_pig_yang	ma_period	10	MA10（p.177）
+q3_08_02_pig_yang	stop_points	20.0	停損點數（延用均線順向策略，圖8-31）
+q3_08_02_pig_yang	large_bar_mode	'wait'	「大K線」處理（延用均線順向策略 p.162-163）："wait"（補進場，預設）| "midpoint"
+q3_08_02_pig_yang	max_wait	10	補進場等待根數（延用均線順向策略慣例）
+q3_08_02_pig_yang	turn_dist_min	10.0	F2（p.182）
+q3_08_02_pig_yang	carryover_open_dist_max	60.0	F4（p.184-185）
+q3_08_02_pig_yang	strict_distance	True	False：關閉F2/F4（海外商品）
+q3_08_02_pig_yang	use_retrace	True	折返停利（p.184-185）
+q3_08_02_pig_yang	retrace_arm	15.0	
+q3_08_02_pig_yang	retrace_points	15.0	
+q3_08_02_pig_yang	use_five_reversal	True	「五黑遇首紅／五紅遇首黑」平倉（p.185-186）
+q3_08_02_pig_yang	five_min_bars	5	q3-06 C1
+q3_08_02_pig_yang	five_min_points	40.0	q3-06 C2（不含C2b回溯總長度例外，簡化）
+q3_08_02_pig_yang	five_wick_max	5.0	q3-06 C7
+q3_09_01_ma_dragonfly	ma_period	10	MA10（p.189）
+q3_09_01_ma_dragonfly	stop_points	20.0	p.193, 198
+q3_09_01_ma_dragonfly	large_bar_threshold	30.0	p.198
+q3_09_01_ma_dragonfly	large_bar_mode	'wait'	"wait" | "midpoint"
+q3_09_01_ma_dragonfly	max_wait	10	補進場等待根數（書中未載明確切根數，沿用慣例，待確認）
+q3_09_01_ma_dragonfly	min_trend_bars	3	F1（p.199）
+q3_09_01_ma_dragonfly	min_turn_dist	20.0	F3/C5（p.192-193, 199, 203-204）
+q3_09_01_ma_dragonfly	region_min_bars	10	F2（p.199）
+q3_09_01_ma_dragonfly	max_trend_flips_per_session	None	F4（推論代理指標，預設關閉，p.201-202）
+q3_09_01_ma_dragonfly	skip_on_opposite_extreme	True	F5（p.200-201）
+q3_09_01_ma_dragonfly	extreme_range	30.0	
+q3_09_01_ma_dragonfly	extreme_from_prev_close	40.0	
+q3_09_01_ma_dragonfly	no_entry_after	None	F6（p.203）
+q3_09_01_ma_dragonfly	use_five_reversal	True	出場（p.191, 193, 195）
+q3_09_01_ma_dragonfly	five_min_bars	5	
+q3_09_01_ma_dragonfly	five_min_points	40.0	
+q3_09_01_ma_dragonfly	five_wick_max	5.0	
+q3_09_02_flat_dragonfly	touch_extreme_points	20.0	C1/C1'（第一/二型），p.208, 221；可調40點取更嚴格門檻（p.212）
+q3_09_02_flat_dragonfly	type34_extreme_points	20.0	T3-1/T4-1（第三/四型），p.206；書中不建議套用40點（p.212）
+q3_09_02_flat_dragonfly	giant_bar_points	60.0	F2，p.216
+q3_09_02_flat_dragonfly	max_flat_touches	1	F4，訊號前允許影線觸及平盤的次數（門檻為推論），p.219, 224
+q3_09_02_flat_dragonfly	stop_points	20.0	p.208, 214, 217, 219-221
+q3_09_02_flat_dragonfly	early_exit_profit	15.0	p.217
+q3_09_02_flat_dragonfly	retrace_trigger	15.0	p.215
+q3_09_02_flat_dragonfly	reverse_max_distance	60.0	p.214-215, 217, 221
+q3_09_02_flat_dragonfly	no_reverse_profit	15.0	p.215
+q3_09_02_flat_dragonfly	use_five_reversal	True	「五黑遇首紅／五紅遇首黑」出場（p.222）
+q3_09_02_flat_dragonfly	five_min_bars	5	q3-06 C1
+q3_09_02_flat_dragonfly	five_min_points	40.0	q3-06 C2（不含C2b回溯總長度例外，簡化）
+q3_09_02_flat_dragonfly	five_wick_max	5.0	q3-06 C7
+q3_10_rsi_diff	rsi_period	5	原文未指定 RSI 參數，採核心預設值（推論）
+q3_10_rsi_diff	diff_threshold	20.0	p.227
+q3_10_rsi_diff	extreme_range	30.0	p.227
+q3_10_rsi_diff	extreme_from_prev_close	40.0	p.227
+q3_10_rsi_diff	gap_merge_points	10.0	p.237，跳空 <= 此值可併入前一日區間
+q3_10_rsi_diff	stop_points	20.0	p.229-231
+q3_10_rsi_diff	max_risk	40.0	F4，p.233（主管澄清：進場價到停損價距離上限）
+q3_10_rsi_diff	profit_confirm	15.0	主管澄清：達此獲利即「已確認」，p.232-233, 236
+q3_10_rsi_diff	reverse_max_from_flat	100.0	p.236
+q3_10_rsi_diff	no_entry_after	None	F5，時間性規則，預設關閉
+q3_10_rsi_diff	no_repeat_after_loss	True	F6，p.233 作者提醒
+q3_10_rsi_diff	min_session_range	None	F7，讀書會作者補充（40），書外規則，預設關閉
+q3_11_option_swing_breakout	ma_period	100	p.246，趨勢分界（書中亦可調整為MA120/MA200）
+q3_11_option_swing_breakout	rsi_period	5	原文未指定 RSI 參數，採核心預設值（推論）
+q3_11_option_swing_breakout	rsi_extreme_high	90.0	p.246-247
+q3_11_option_swing_breakout	rsi_extreme_low	10.0	p.246-247
+q3_11_option_swing_breakout	rsi_near_tol	1.0	p.255，RSI極接近門檻亦視為達成（如89.41）
+q3_11_option_swing_breakout	max_pullback_bars	20	C5：書中以「天」描述（約1天內佳、逾10天過久），本參數為根數近似值，
+q3_11_option_swing_breakout	ma10_period	10	p.258，MA10移動停利
+q3_11_option_swing_breakout	retrace_points	100.0	p.258-259，創高低反彈折返停利（書中亦提及可用150點）
+q3_11_option_swing_breakout	fixed_profit_ratio	1.0	p.257，機制4「賺50%或100%出場」的近似倍數（1.0≈100%、0.5≈50%）
+q3_11_option_swing_breakout	exit_mode	'ma10'	"ma10" | "retrace" | "prev_day" | "fixed_pct" | "hold"，書中未定優先序
+q3_11_option_swing_breakout	arm_at_strike	True	觸及履約價（價外轉價平）後才啟動停利（p.252, 258-259）
+q3_11_option_swing_breakout	strike_step	100.0	履約價間距（書中範例皆為 100 點）
+q3_11_option_swing_breakout	otm_steps	2	價外檔數（p.245, 258-259「價外二檔」；0＝價平）
+sg_01_rsi_blunt_quick	rsi_period	5	讀書會確認 RSI 參數為 5（2020-04 post 1121217044892875）
+sg_01_rsi_blunt_quick	rsi_method	'wilder'	與 q2-06-04 相同
+sg_01_rsi_blunt_quick	ob_extreme	90.0	
+sg_01_rsi_blunt_quick	os_extreme	10.0	
+sg_01_rsi_blunt_quick	window_minutes	10.0	原文 1分K十根＝10分；5分K三根≈15分
+sg_01_rsi_blunt_quick	stop_points	20.0	停損上限（推論，比照 q2-06-04「宜控制在 20 點以內」）
+sg_01_rsi_blunt_quick	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_01_rsi_blunt_quick	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+sg_02_counterattack_line	low_tol	1.0	低點差距在1點以內（作者原文；空方高點「同高 或 差距1點」助教 2020-04-26）
+sg_02_counterattack_line	first_move	7.0	黑K跌點在7點以上（作者原文；空方為紅K漲 7 以上，助教確認）
+sg_02_counterattack_line	second_move	5.0	紅K漲點在5點以上（作者原文；空方為黑K跌 5 以上，助教確認）
+sg_02_counterattack_line	move_basis	'close_diff'	漲跌點基準（原文未明）："close_diff" 或 "body"
+sg_02_counterattack_line	high_match_tol	None	「高點相當」（作者原文，無數值）；None 不檢查
+sg_02_counterattack_line	enable_short	True	空方鏡像（學員整理、助教確認 2020-04-26）
+sg_02_counterattack_line	extreme_mode	'session'	「宜在當天極端位置」（作者原文，判定方式推論）
+sg_02_counterattack_line	extreme_tol	0.0	session 模式：組合低點距當下盤中最低的容差（推論）
+sg_02_counterattack_line	extreme_from_prev_close	40.0	prev_close 模式：組合低點距平盤門檻（推論，借 q3 極端位置 40 點）
+sg_02_counterattack_line	stop_mode	'fixed'	"fixed"＝助教 20 點；"structure"＝組合極端點（SG_SPEC 通則，推論）
+sg_02_counterattack_line	stop_points	20.0	助教「建議停損抓20點」（2020-07-30）
+sg_02_counterattack_line	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_02_counterattack_line	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+sg_03_flat_kd	kd_n	9	作者留言確認 9、3、3（post 2066158764196874，2025-12-09／12-18）
+sg_03_flat_kd	k_period	3	
+sg_03_flat_kd	d_period	3	
+sg_03_flat_kd	oversold	20.0	原文「KD皆在20以下」（2025-12-08）
+sg_03_flat_kd	overbought	80.0	原文「KD皆在80上」（2025-12-08）
+sg_03_flat_kd	zone_bar	'prev'	"prev"＝交叉前一根 K、D 皆在門檻外（依圖 1、2、3）；"cross"＝交叉當根
+sg_03_flat_kd	flat_mode	'close'	"close"＝收盤在平盤上/下（依圖 2 A 點）；"bar"＝整根K棒在平盤上/下
+sg_03_flat_kd	stop_points	20.0	停損上限（推論，比照 sg-01）
+sg_03_flat_kd	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_03_flat_kd	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+sg_04_dent	ma_period	10	圖上標 MA10（1910002686479150，2025-06-03）
+sg_04_dent	pivot_level	1	「層級1的峰點／谷點」（同上）
+sg_04_dent	stop_points	20.0	「若直接進場，則設置20點停損應對」（同上）
+sg_04_dent	large_bar_points	None	「幅度過大」門檻：B 高低差超過即視為過大；原文無數值，None＝不判斷
+sg_04_dent	large_bar_mode	'wait'	"wait"：距 B 低(高)點 20 點承接；"skip"：忽略（兩者皆原文）
+sg_04_dent	wait_offset	20.0	「以距B的低點20點位置承接」（同上）
+sg_04_dent	wait_bars	1	「等次根折返再接」（同上，多方圖）
+sg_04_dent	max_wait_minutes	None	推論：B 距 A 的時間上限；原文未寫，預設不限
+sg_05_inside_box	min_boxed_bars	3	含首根至少 3 根（學員上課筆記 2019-08-29；助教 2021-04-20）
+sg_05_inside_box	max_boxed_bars	5	含首根最多 5 根（學員上課筆記 2019-08-29）；助教實例常超過，None＝不限
+sg_05_inside_box	max_first_range	10.0	首根高低差上限（點）；「放大版」無量化門檻，None＝不限
+sg_05_inside_box	near_extreme_points	10.0	首根距盤中最低（買）／最高（空）上限（點，學員轉述 2021-04-20）；None＝不檢查
+sg_05_inside_box	stop_points	20.0	固定停損（助教 2018-11-13、2018-11-21，放大版不變）
+sg_05_inside_box	enable_short	True	內困空訊（助教多篇實例）
+sg_06_first_bar_color	gap_points	0.0	跳空門檻：|今開 − 平盤| ≥ 此值（且 > 0）；原文未給（未定）
+sg_06_first_bar_color	entry_mode	'close'	"close"：首K收盤進場（推論）；"breakout"：後續收盤突破首K低（高）點（2021-06-30）
+sg_06_first_bar_color	cancel_on_recover	True	breakout：首次盤中破首K低點卻收回（下殺收腳）即撤單（2021-06-30）
+sg_06_first_bar_color	breakout_window_minutes	None	breakout 等待時間窗（原文未給；None＝到收盤）
+sg_06_first_bar_color	stop_offset	1.0	停損＝首K低點下 1 點（2021-07-28 助教；空方鏡像推論）
+sg_06_first_bar_color	max_stop_points	None	停損距離上限（推論，預設關閉）；超過改用均線訊號停損法
+sg_06_first_bar_color	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_06_first_bar_color	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+sg_07_gap_hundred	gap_threshold	100.0	開盤 − 昨日日盤收盤 ≥100 點（剛好 100 算成立；助教 2021-05-15、06-08、04-21）
+sg_07_gap_hundred	direction	'fade'	"fade" 反向（多數實例）／"follow" 順向（作者 2020-09-16 舊文）／"both" 不限（推論）
+sg_07_gap_hundred	unmasked	True	收盤須越過首根至前一根的極值（無遮蔽，助教 2021-04-06）；False 只比首根高低點
+sg_07_gap_hundred	first_only	True	每日只取第一次成立（推論）；False＝每次新的突破／跌破都成立（持同向部位時引擎忽略）
+sg_07_gap_hundred	window_minutes	None	首根之後幾分鐘內有效（推論；原文未規定，None＝整個交易日）
+sg_07_gap_hundred	stop_points	20.0	停損上限（推論，SG_SPEC 預設）
+sg_07_gap_hundred	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_07_gap_hundred	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）
+sg_08_volume_expansion	base_volume	2000.0	前一根量上限（口），2023-10-06 post 1510250073121082
+sg_08_volume_expansion	volume_increase	2000.0	擴量K比前一根多出的口數須 > 此值（同上）
+sg_08_volume_expansion	high_prev_ratio	3.0	前一根已 > base_volume 時，擴量K量須 ≥ 前一根 × 此倍數（同上；892897854856310）
+sg_08_volume_expansion	require_color_pattern	True	黑黑紅／紅紅黑（2023-07-07 post 1461438344668922）
+sg_08_volume_expansion	stop_points	20.0	停損上限（推論，比照 sg-01）
+sg_08_volume_expansion	stop_min_offset	10.0	均線訊號停損法固定部分（q2-01 p.13）
+sg_08_volume_expansion	stop_integer_points	20.0	均線訊號停損法整數價位固定點數（q2-01 p.13）

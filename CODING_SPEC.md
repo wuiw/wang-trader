@@ -2,6 +2,8 @@
 
 目標：把 `methods/` 下每個已確認的操作方法寫成**獨立的 Python 模組**，**不區隔操作週期**。
 
+> 讀書會書外方法（sg-*）除本規範外，另依 `methods/讀書會/SG_SPEC.md`（規格來源、推論規則預設值、回測方式）。
+
 ## 環境
 
 - 專案：`/home/wuiw/finance/wang-trader`，uv 管理。跑測試：`uv run pytest -q tests/test_<你的模組>.py`
